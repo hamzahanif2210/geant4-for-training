@@ -50,6 +50,10 @@
 #include "G4PhysicalConstants.hh"
 #include "G4SystemOfUnits.hh"
 
+#include <cstdlib>
+#include <stdexcept>
+#include <string>
+
 namespace B4
 {
 
@@ -101,15 +105,58 @@ void DetectorConstruction::DefineMaterials()
 
 G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
 {
+  auto getEnvDouble = [](const char* name, G4double fallback) {
+    const char* value = std::getenv(name);
+    if (!value) {
+      return fallback;
+    }
+
+    try {
+      return std::stod(value);
+    }
+    catch (const std::exception&) {
+      G4cout << "[B4] Invalid value for " << name << ": " << value
+             << ". Using fallback " << fallback << G4endl;
+      return fallback;
+    }
+  };
+
+  auto getEnvInt = [](const char* name, G4int fallback) {
+    const char* value = std::getenv(name);
+    if (!value) {
+      return fallback;
+    }
+
+    try {
+      auto parsed = std::stoi(value);
+      return parsed > 0 ? parsed : fallback;
+    }
+    catch (const std::exception&) {
+      G4cout << "[B4] Invalid value for " << name << ": " << value
+             << ". Using fallback " << fallback << G4endl;
+      return fallback;
+    }
+  };
+
   // Geometry parameters
-  G4double cellSizeXY = 40*mm; //25*mm -> 26*mm & 24*mm;   4cm -> 20 cm
-  G4double cellSizeZ  = 100*mm; //60.*mm -> 61*mm & 59*mm;   10cm -> 50 cm 
-  G4double nCellsXY = 5;
-  G4double nCellsZ  = 5;
-  G4double calorSizeXY = nCellsXY * cellSizeXY;
+  G4double cellSizeX = getEnvDouble("B4_CELL_SIZE_X_CM", 4.0) * cm;
+  G4double cellSizeY = getEnvDouble("B4_CELL_SIZE_Y_CM", 4.0) * cm;
+  G4double cellSizeZ = getEnvDouble("B4_CELL_SIZE_Z_CM", 10.0) * cm;
+  G4int nCellsX = getEnvInt("B4_NUM_CELLS_X", 5);
+  G4int nCellsY = getEnvInt("B4_NUM_CELLS_Y", 5);
+  G4int nCellsZ = getEnvInt("B4_NUM_CELLS_Z", 5);
+  G4double calorSizeX = nCellsX * cellSizeX;
+  G4double calorSizeY = nCellsY * cellSizeY;
   G4double calorSizeZ  = nCellsZ  * cellSizeZ;
-  auto worldSizeXY = calorSizeXY;
-  auto worldSizeZ  = calorSizeZ * 1; 
+  G4cout << "[B4] Geometry configuration: "
+         << nCellsX << "x" << nCellsY << "x" << nCellsZ << " cells, "
+         << "cell size "
+         << cellSizeX / cm << "x" << cellSizeY / cm << "x" << cellSizeZ / cm
+         << " cm^3" << G4endl;
+
+  auto worldSizeX = calorSizeX;
+  auto worldSizeY = calorSizeY;
+  auto worldSizeZ = calorSizeZ;
 
   // Get materials
   auto defaultMaterial = G4Material::GetMaterial("Galactic");
@@ -125,7 +172,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
   //
   // World
   //
-  auto worldS = new G4Box("World", worldSizeXY/2, worldSizeXY/2, worldSizeZ/2);
+  auto worldS = new G4Box("World", worldSizeX/2, worldSizeY/2, worldSizeZ/2);
 
   auto worldLV = new G4LogicalVolume(worldS,defaultMaterial,"World");
 
@@ -141,28 +188,28 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
   );
 
 
-  auto solidDetector=new G4Box("solidDetector", cellSizeXY/2*mm, cellSizeXY/2*mm, cellSizeZ/2*mm);
+  auto solidDetector = new G4Box("solidDetector", cellSizeX/2, cellSizeY/2, cellSizeZ/2);
   auto logicDetector= new G4LogicalVolume(solidDetector,detectorMaterial,"logicDetector");
-  G4double a=0;
+  G4int copyNumber = 0;
   for (G4int k = 0; k < nCellsZ; k++) {
-  	for (G4int j = 0; j < nCellsXY; j++) { 
-      for (G4int i = 0; i < nCellsXY; i++) { 
-        auto physDetector = new G4PVPlacement(
+    for (G4int j = 0; j < nCellsY; j++) {
+      for (G4int i = 0; i < nCellsX; i++) {
+        new G4PVPlacement(
           0,
           G4ThreeVector(
-            -((calorSizeXY-cellSizeXY)/2.)*mm + (cellSizeXY*i)*mm,
-            -((calorSizeXY-cellSizeXY)/2.)*mm + (cellSizeXY*j)*mm,
-            -((calorSizeZ -cellSizeZ) /2.)*mm + (cellSizeZ *k)*mm
+            -(calorSizeX - cellSizeX) / 2. + (cellSizeX * i),
+            -(calorSizeY - cellSizeY) / 2. + (cellSizeY * j),
+            -(calorSizeZ - cellSizeZ) / 2. + (cellSizeZ * k)
           ),
           logicDetector,
           "physDetector",
           worldLV,
           false,
-          a,
+          copyNumber,
           false
         );
-        a=a+1;
-  		}
+        ++copyNumber;
+      }
     }
   }
   //

@@ -50,10 +50,15 @@ set(EXAMPLEB4A_SCRIPTS
   plotNtuple.C
   run1.mac
   run2.mac
+  scripts/automate_pbf2_scan.sh
   vis.mac
   )
 
 foreach(_script ${EXAMPLEB4A_SCRIPTS})
+  get_filename_component(_script_dir ${_script} DIRECTORY)
+  if(_script_dir)
+    file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/${_script_dir})
+  endif()
   configure_file(
     ${PROJECT_SOURCE_DIR}/${_script}
     ${PROJECT_BINARY_DIR}/${_script}
