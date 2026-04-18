@@ -139,9 +139,10 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
   };
 
   // Geometry parameters
-  G4double cellSizeX = getEnvDouble("B4_CELL_SIZE_X_CM", 4.0) * cm;
-  G4double cellSizeY = getEnvDouble("B4_CELL_SIZE_Y_CM", 4.0) * cm;
-  G4double cellSizeZ = getEnvDouble("B4_CELL_SIZE_Z_CM", 10.0) * cm;
+  G4double defaultCellSizeCm = getEnvDouble("B4_CELL_SIZE_CM", 4.0);
+  G4double cellSizeX = getEnvDouble("B4_CELL_SIZE_X_CM", defaultCellSizeCm) * cm;
+  G4double cellSizeY = getEnvDouble("B4_CELL_SIZE_Y_CM", defaultCellSizeCm) * cm;
+  G4double cellSizeZ = getEnvDouble("B4_CELL_SIZE_Z_CM", defaultCellSizeCm) * cm;
   G4int nCellsX = getEnvInt("B4_NUM_CELLS_X", 5);
   G4int nCellsY = getEnvInt("B4_NUM_CELLS_Y", 5);
   G4int nCellsZ = getEnvInt("B4_NUM_CELLS_Z", 5);
