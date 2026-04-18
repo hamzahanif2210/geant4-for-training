@@ -34,7 +34,7 @@
 #include "G4Step.hh"
 #include "G4RunManager.hh"
 #include "G4AnalysisManager.hh"
-
+#include "G4SystemOfUnits.hh"
 using namespace B4;
 
 namespace B4a
@@ -64,6 +64,14 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
   auto x = step->GetPostStepPoint()->GetPosition().x();
   auto y = step->GetPostStepPoint()->GetPosition().y();
   auto z = step->GetPostStepPoint()->GetPosition().z();
+  auto timeNs = step->GetPreStepPoint()->GetGlobalTime() / ns;
+
+  auto touchable = step->GetPreStepPoint()->GetTouchableHandle();
+  auto copyNumber = touchable->GetCopyNumber();
+
+  int nCellsXY = 5;
+  int layerIndex = copyNumber / (nCellsXY * nCellsXY);
+
 
   // get event number
   auto eventID = G4RunManager::GetRunManager()->GetCurrentEvent()->GetEventID();
@@ -81,6 +89,8 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
   analysisManager->FillNtupleDColumn(3, y);
   analysisManager->FillNtupleDColumn(4, z);
   analysisManager->FillNtupleDColumn(5, edep);
+  analysisManager->FillNtupleDColumn(6, timeNs);
+  analysisManager->FillNtupleIColumn(7, layerIndex);
   analysisManager->AddNtupleRow();
 
 }

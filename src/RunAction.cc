@@ -69,6 +69,8 @@ RunAction::RunAction()
   analysisManager->CreateNtupleDColumn("y");
   analysisManager->CreateNtupleDColumn("z");
   analysisManager->CreateNtupleDColumn("dE");
+  analysisManager->CreateNtupleDColumn("t_ns");
+  analysisManager->CreateNtupleIColumn("layerIndex");   // new
   analysisManager->FinishNtuple();
 }
 
