@@ -35,8 +35,21 @@
 #include "G4UnitsTable.hh"
 #include "G4SystemOfUnits.hh"
 
+#include <cstdlib>
+
 namespace B4
 {
+
+namespace {
+G4String GetOutputFileName() {
+  const char* outputFile = std::getenv("B4_OUTPUT_FILE");
+  if (outputFile && outputFile[0] != '\0') {
+    return outputFile;
+  }
+  return "photon_showers.root";
+}
+}  // namespace
+
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
@@ -69,6 +82,7 @@ RunAction::RunAction()
   analysisManager->CreateNtupleDColumn("y");
   analysisManager->CreateNtupleDColumn("z");
   analysisManager->CreateNtupleDColumn("dE");
+  analysisManager->CreateNtupleDColumn("t_ns");
   analysisManager->FinishNtuple();
 }
 
@@ -84,10 +98,10 @@ void RunAction::BeginOfRunAction(const G4Run* /*run*/)
 
   // Open an output file
   //
-  G4String filePath = "/project/ctb-stelzer/hamza95/photons_gen/build";
-  G4String fileName = filePath+"photon_showers.root";
+  const auto fileName = GetOutputFileName();
   analysisManager->OpenFile(fileName);
-  G4cout << "Using " << analysisManager->GetType() << G4endl;
+  G4cout << "Using " << analysisManager->GetType()
+         << ", output file: " << fileName << G4endl;
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......

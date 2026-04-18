@@ -39,15 +39,46 @@
 #include "FTFP_BERT.hh"
 #include "Randomize.hh"
 
+#include <cstdlib>
+#include <fstream>
+#include <string>
+
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 namespace {
   void PrintUsage() {
     G4cerr << " Usage: " << G4endl;
-    G4cerr << " exampleB4a [-m macro ] [-u UIsession] [-t nThreads] [-vDefault]"
+    G4cerr << " exampleB4a [-m macro ] [-u UIsession] [-t nThreads] [-s seed] [-n nEvents]"
+           << G4endl;
+    G4cerr << "           [-e energyGeV] [-c cellSizeCm] [--cell-x cm] [--cell-y cm] [--cell-z cm]"
+           << G4endl;
+    G4cerr << "           [-o outputFile] [-vDefault]"
            << G4endl;
     G4cerr << "   note: -t option is available only for multi-threaded mode."
            << G4endl;
+  }
+
+  G4bool MacroContainsBeamOn(const G4String& macroPath) {
+    std::ifstream macroFile(macroPath);
+    if (!macroFile) {
+      return false;
+    }
+
+    std::string line;
+    while (std::getline(macroFile, line)) {
+      const auto firstNonSpace = line.find_first_not_of(" 	");
+      if (firstNonSpace == std::string::npos) {
+        continue;
+      }
+      if (line[firstNonSpace] == '#') {
+        continue;
+      }
+      if (line.compare(firstNonSpace, 11, "/run/beamOn") == 0) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }
 
@@ -57,30 +88,49 @@ int main(int argc,char** argv)
 {
   // Evaluate arguments
   //
-  if ( argc > 7 ) {
-    PrintUsage();
-    return 1;
-  }
-
   G4String macro;
   G4String session;
   G4int seed = 12345;
+  G4int nEvents = -1;
+  G4double primaryEnergyGeV = -1.;
+  G4double isotropicCellSizeCm = -1.;
+  G4double cellSizeXCm = -1.;
+  G4double cellSizeYCm = -1.;
+  G4double cellSizeZCm = -1.;
+  G4String outputFile;
   G4bool verboseBestUnits = true;
 #ifdef G4MULTITHREADED
   G4int nThreads = 0;
 #endif
-  for ( G4int i=1; i<argc; i=i+2 ) {
-    if      ( G4String(argv[i]) == "-m" ) macro = argv[i+1];  
-    else if ( G4String(argv[i]) == "-s" ) seed = std::stoi(argv[i+1]);
-    else if ( G4String(argv[i]) == "-u" ) session = argv[i+1];
+  for ( G4int i = 1; i < argc; ++i ) {
+    G4String option = argv[i];
+    auto requireValue = [&](const G4String& optName) -> char* {
+      if (i + 1 >= argc) {
+        G4cerr << "Missing value for " << optName << G4endl;
+        PrintUsage();
+        std::exit(1);
+      }
+      ++i;
+      return argv[i];
+    };
+
+    if      ( option == "-m" ) macro = requireValue(option);
+    else if ( option == "-s" ) seed = std::stoi(requireValue(option));
+    else if ( option == "-u" ) session = requireValue(option);
+    else if ( option == "-n" ) nEvents = std::stoi(requireValue(option));
+    else if ( option == "-e" ) primaryEnergyGeV = std::stod(requireValue(option));
+    else if ( option == "-c" ) isotropicCellSizeCm = std::stod(requireValue(option));
+    else if ( option == "--cell-x" ) cellSizeXCm = std::stod(requireValue(option));
+    else if ( option == "--cell-y" ) cellSizeYCm = std::stod(requireValue(option));
+    else if ( option == "--cell-z" ) cellSizeZCm = std::stod(requireValue(option));
+    else if ( option == "-o" ) outputFile = requireValue(option);
 #ifdef G4MULTITHREADED
-    else if ( G4String(argv[i]) == "-t" ) {
-      nThreads = G4UIcommand::ConvertToInt(argv[i+1]);
+    else if ( option == "-t" ) {
+      nThreads = G4UIcommand::ConvertToInt(requireValue(option));
     }
 #endif
-    else if ( G4String(argv[i]) == "-vDefault" ) {
+    else if ( option == "-vDefault" ) {
       verboseBestUnits = false;
-      --i;  // this option is not followed with a parameter
     }
     else {
       PrintUsage();
@@ -91,6 +141,26 @@ int main(int argc,char** argv)
   // Random seed
   CLHEP::HepRandom::setTheSeed(seed); 
   G4Random::setTheSeed(seed);
+
+  if (primaryEnergyGeV > 0.) {
+    setenv("B4_PRIMARY_ENERGY_GEV", std::to_string(primaryEnergyGeV).c_str(), 1);
+  }
+  if (isotropicCellSizeCm > 0.) {
+    const auto cellSizeValue = std::to_string(isotropicCellSizeCm);
+    setenv("B4_CELL_SIZE_CM", cellSizeValue.c_str(), 1);
+  }
+  if (cellSizeXCm > 0.) {
+    setenv("B4_CELL_SIZE_X_CM", std::to_string(cellSizeXCm).c_str(), 1);
+  }
+  if (cellSizeYCm > 0.) {
+    setenv("B4_CELL_SIZE_Y_CM", std::to_string(cellSizeYCm).c_str(), 1);
+  }
+  if (cellSizeZCm > 0.) {
+    setenv("B4_CELL_SIZE_Z_CM", std::to_string(cellSizeZCm).c_str(), 1);
+  }
+  if (!outputFile.empty()) {
+    setenv("B4_OUTPUT_FILE", outputFile.c_str(), 1);
+  }
 
   // Detect interactive mode (if no macro provided) and define UI session
   //
@@ -146,13 +216,28 @@ int main(int argc,char** argv)
   if ( macro.size() ) {
     // batch mode
     G4String command = "/control/execute ";
+    const auto macroHasBeamOn = MacroContainsBeamOn(macro);
     UImanager->ApplyCommand(command+macro);
+    if (nEvents > 0) {
+      if (macroHasBeamOn) {
+        G4cout << "[exampleB4a] '-n " << nEvents
+               << "' ignored because macro already contains /run/beamOn."
+               << G4endl;
+      }
+      else {
+        UImanager->ApplyCommand("/run/beamOn " + std::to_string(nEvents));
+      }
+    }
   }
   else  {
     // interactive mode : define UI session
     UImanager->ApplyCommand("/control/execute init_vis.mac");
     if (ui->IsGUI()) {
       UImanager->ApplyCommand("/control/execute gui.mac");
+    }
+    if (nEvents > 0) {
+      UImanager->ApplyCommand("/run/initialize");
+      UImanager->ApplyCommand("/run/beamOn " + std::to_string(nEvents));
     }
     ui->SessionStart();
     delete ui;
