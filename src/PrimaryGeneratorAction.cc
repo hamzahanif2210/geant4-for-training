@@ -39,6 +39,8 @@
 #include "Randomize.hh"
 #include <vector>
 #include <random>
+#include <cstdlib>
+#include <stdexcept>
 
 namespace B4
 {
@@ -47,6 +49,22 @@ namespace B4
 
 PrimaryGeneratorAction::PrimaryGeneratorAction()
 {
+  auto getEnvDouble = [](const char* name, G4double fallback) {
+    const char* value = std::getenv(name);
+    if (!value) {
+      return fallback;
+    }
+
+    try {
+      return std::stod(value);
+    }
+    catch (const std::exception&) {
+      G4cout << "[B4] Invalid value for " << name << ": " << value
+             << ". Using fallback " << fallback << G4endl;
+      return fallback;
+    }
+  };
+
   G4int nofParticles = 1;
   fParticleGun = new G4ParticleGun(nofParticles);
 
@@ -63,7 +81,9 @@ PrimaryGeneratorAction::PrimaryGeneratorAction()
   // auto particleEnergy = energies[dist(gen)];
   // fParticleGun->SetParticleEnergy(particleEnergy);
   // fParticleGun->SetParticleEnergy(1000.*MeV); // 1000 MeV = 1 GeV
-  fParticleGun->SetParticleEnergy(15 * GeV);
+  const G4double primaryEnergyGeV = getEnvDouble("B4_PRIMARY_ENERGY_GEV", 15.0);
+  fParticleGun->SetParticleEnergy(primaryEnergyGeV * GeV);
+  G4cout << "[B4] Primary energy: " << primaryEnergyGeV << " GeV" << G4endl;
 
 }
 
