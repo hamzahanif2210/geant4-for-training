@@ -40,7 +40,6 @@
 #include "Randomize.hh"
 
 #include <cstdlib>
-#include <fstream>
 #include <string>
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -50,9 +49,7 @@ namespace {
     G4cerr << " Usage: " << G4endl;
     G4cerr << " exampleB4a [-m macro ] [-u UIsession] [-t nThreads] [-s seed] [-n nEvents]"
            << G4endl;
-    G4cerr << "           [-e energyGeV] [-c cellSizeCm] [--cell-x cm] [--cell-y cm] [--cell-z cm]"
-           << G4endl;
-    G4cerr << "           [-o outputFile] [-vDefault]"
+    G4cerr << "           [-e energyGeV] [-c cellSizeCm] [-vDefault]"
            << G4endl;
     G4cerr << "   note: -t option is available only for multi-threaded mode."
            << G4endl;
@@ -94,10 +91,6 @@ int main(int argc,char** argv)
   G4int nEvents = -1;
   G4double primaryEnergyGeV = -1.;
   G4double isotropicCellSizeCm = -1.;
-  G4double cellSizeXCm = -1.;
-  G4double cellSizeYCm = -1.;
-  G4double cellSizeZCm = -1.;
-  G4String outputFile;
   G4bool verboseBestUnits = true;
 #ifdef G4MULTITHREADED
   G4int nThreads = 0;
@@ -120,10 +113,6 @@ int main(int argc,char** argv)
     else if ( option == "-n" ) nEvents = std::stoi(requireValue(option));
     else if ( option == "-e" ) primaryEnergyGeV = std::stod(requireValue(option));
     else if ( option == "-c" ) isotropicCellSizeCm = std::stod(requireValue(option));
-    else if ( option == "--cell-x" ) cellSizeXCm = std::stod(requireValue(option));
-    else if ( option == "--cell-y" ) cellSizeYCm = std::stod(requireValue(option));
-    else if ( option == "--cell-z" ) cellSizeZCm = std::stod(requireValue(option));
-    else if ( option == "-o" ) outputFile = requireValue(option);
 #ifdef G4MULTITHREADED
     else if ( option == "-t" ) {
       nThreads = G4UIcommand::ConvertToInt(requireValue(option));
@@ -148,18 +137,6 @@ int main(int argc,char** argv)
   if (isotropicCellSizeCm > 0.) {
     const auto cellSizeValue = std::to_string(isotropicCellSizeCm);
     setenv("B4_CELL_SIZE_CM", cellSizeValue.c_str(), 1);
-  }
-  if (cellSizeXCm > 0.) {
-    setenv("B4_CELL_SIZE_X_CM", std::to_string(cellSizeXCm).c_str(), 1);
-  }
-  if (cellSizeYCm > 0.) {
-    setenv("B4_CELL_SIZE_Y_CM", std::to_string(cellSizeYCm).c_str(), 1);
-  }
-  if (cellSizeZCm > 0.) {
-    setenv("B4_CELL_SIZE_Z_CM", std::to_string(cellSizeZCm).c_str(), 1);
-  }
-  if (!outputFile.empty()) {
-    setenv("B4_OUTPUT_FILE", outputFile.c_str(), 1);
   }
 
   // Detect interactive mode (if no macro provided) and define UI session
@@ -219,14 +196,7 @@ int main(int argc,char** argv)
     const auto macroHasBeamOn = MacroContainsBeamOn(macro);
     UImanager->ApplyCommand(command+macro);
     if (nEvents > 0) {
-      if (macroHasBeamOn) {
-        G4cout << "[exampleB4a] '-n " << nEvents
-               << "' ignored because macro already contains /run/beamOn."
-               << G4endl;
-      }
-      else {
-        UImanager->ApplyCommand("/run/beamOn " + std::to_string(nEvents));
-      }
+      UImanager->ApplyCommand("/run/beamOn " + std::to_string(nEvents));
     }
   }
   else  {
