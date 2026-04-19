@@ -112,8 +112,8 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
   G4double cellSizeX = fCellSizeX * cm;
   G4double cellSizeY = fCellSizeY * cm;
   G4double cellSizeZ = fCellSizeZ * cm;
-  G4int nCellsXY = 5;
-  G4int nCellsZ  = 5;
+  G4int nCellsXY = fNCellsXY;
+  G4int nCellsZ  = fNCellsZ;
   G4double calorSizeX = nCellsXY * cellSizeX;
   G4double calorSizeY = nCellsXY * cellSizeY;
   G4double calorSizeZ = nCellsZ  * cellSizeZ;

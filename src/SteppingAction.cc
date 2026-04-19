@@ -69,7 +69,7 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
   auto touchable = step->GetPreStepPoint()->GetTouchableHandle();
   auto copyNumber = touchable->GetCopyNumber();
 
-  int nCellsXY = 5;
+  int nCellsXY = fDetConstruction->GetNCellsXY();
   int layerIndex = copyNumber / (nCellsXY * nCellsXY);
 
 
