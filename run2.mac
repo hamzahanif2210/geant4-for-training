@@ -15,5 +15,5 @@
 /run/printProgress 100
 /gun/energy 1 GeV
 /gun/particle gamma
-/run/beamOn 5000
+/run/beamOn 500
 
