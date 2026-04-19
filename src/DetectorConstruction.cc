@@ -60,6 +60,12 @@ G4GlobalMagFieldMessenger* DetectorConstruction::fMagFieldMessenger = nullptr;
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
+DetectorConstruction::DetectorConstruction(G4double cellSizeX, G4double cellSizeY, G4double cellSizeZ)
+  : fCellSizeX(cellSizeX), fCellSizeY(cellSizeY), fCellSizeZ(cellSizeZ)
+{}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
 G4VPhysicalVolume* DetectorConstruction::Construct()
 {
   // Define materials
@@ -101,15 +107,15 @@ void DetectorConstruction::DefineMaterials()
 
 G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
 {
-  // Geometry parameters
-  G4double cellSizeXY = 40*mm; //25*mm -> 26*mm & 24*mm;   4cm -> 20 cm
-  G4double cellSizeZ  = 100*mm; //60.*mm -> 61*mm & 59*mm;   10cm -> 50 cm 
-  G4double nCellsXY = 5;
-  G4double nCellsZ  = 5;
-  G4double calorSizeXY = nCellsXY * cellSizeXY;
-  G4double calorSizeZ  = nCellsZ  * cellSizeZ;
-  auto worldSizeXY = calorSizeXY;
-  auto worldSizeZ  = calorSizeZ * 1; 
+  // Geometry parameters — cell sizes provided in cm, converted to Geant4 internal units
+  G4double cellSizeX = fCellSizeX * cm;
+  G4double cellSizeY = fCellSizeY * cm;
+  G4double cellSizeZ = fCellSizeZ * cm;
+  G4int nCellsXY = 5;
+  G4int nCellsZ  = 5;
+  G4double calorSizeX = nCellsXY * cellSizeX;
+  G4double calorSizeY = nCellsXY * cellSizeY;
+  G4double calorSizeZ = nCellsZ  * cellSizeZ;
 
   // Get materials
   auto defaultMaterial = G4Material::GetMaterial("Galactic");
@@ -125,44 +131,42 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
   //
   // World
   //
-  auto worldS = new G4Box("World", worldSizeXY/2, worldSizeXY/2, worldSizeZ/2);
+  auto worldS = new G4Box("World", calorSizeX/2, calorSizeY/2, calorSizeZ/2);
 
-  auto worldLV = new G4LogicalVolume(worldS,defaultMaterial,"World");
+  auto worldLV = new G4LogicalVolume(worldS, defaultMaterial, "World");
 
   auto worldPV = new G4PVPlacement(
-    0,                                // no rotation 
-    G4ThreeVector(0.,0.,0.),          // at (0,0,0)
-    worldLV,                          // its logical volume
-    "World",                          // its name
-    0,                                // its mother  volume
-    false,                            // no boolean operation
-    0,                                // copy number
-    false                             // checking overlaps
+    0,
+    G4ThreeVector(0., 0., 0.),
+    worldLV,
+    "World",
+    0,
+    false,
+    0,
+    false
   );
 
-
-  auto solidDetector=new G4Box("solidDetector", cellSizeXY/2*mm, cellSizeXY/2*mm, cellSizeZ/2*mm);
-  auto logicDetector= new G4LogicalVolume(solidDetector,detectorMaterial,"logicDetector");
-  G4double a=0;
+  auto solidDetector = new G4Box("solidDetector", cellSizeX/2, cellSizeY/2, cellSizeZ/2);
+  auto logicDetector = new G4LogicalVolume(solidDetector, detectorMaterial, "logicDetector");
+  G4int copyNum = 0;
   for (G4int k = 0; k < nCellsZ; k++) {
-  	for (G4int j = 0; j < nCellsXY; j++) { 
-      for (G4int i = 0; i < nCellsXY; i++) { 
-        auto physDetector = new G4PVPlacement(
+    for (G4int j = 0; j < nCellsXY; j++) {
+      for (G4int i = 0; i < nCellsXY; i++) {
+        new G4PVPlacement(
           0,
           G4ThreeVector(
-            -((calorSizeXY-cellSizeXY)/2.)*mm + (cellSizeXY*i)*mm,
-            -((calorSizeXY-cellSizeXY)/2.)*mm + (cellSizeXY*j)*mm,
-            -((calorSizeZ -cellSizeZ) /2.)*mm + (cellSizeZ *k)*mm
+            -(calorSizeX - cellSizeX)/2. + cellSizeX*i,
+            -(calorSizeY - cellSizeY)/2. + cellSizeY*j,
+            -(calorSizeZ - cellSizeZ)/2. + cellSizeZ*k
           ),
           logicDetector,
           "physDetector",
           worldLV,
           false,
-          a,
+          copyNum++,
           false
         );
-        a=a+1;
-  		}
+      }
     }
   }
   //

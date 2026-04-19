@@ -40,7 +40,8 @@ namespace B4
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-RunAction::RunAction()
+RunAction::RunAction(const G4String& outputFile)
+  : fOutputFile(outputFile)
 {
   // set printing event number per each event
   G4RunManager::GetRunManager()->SetPrintProgress(1);
@@ -85,10 +86,7 @@ void RunAction::BeginOfRunAction(const G4Run* /*run*/)
   auto analysisManager = G4AnalysisManager::Instance();
 
   // Open an output file
-  //
-  G4String filePath = "/project/ctb-stelzer/hamza95/photons_gen/build";
-  G4String fileName = filePath+"photon_showers.root";
-  analysisManager->OpenFile(fileName);
+  analysisManager->OpenFile(fOutputFile);
   G4cout << "Using " << analysisManager->GetType() << G4endl;
 }
 

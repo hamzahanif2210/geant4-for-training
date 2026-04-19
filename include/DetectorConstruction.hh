@@ -56,7 +56,8 @@ namespace B4
 class DetectorConstruction : public G4VUserDetectorConstruction
 {
   public:
-    DetectorConstruction() = default;
+    // cellSizeX, cellSizeY, cellSizeZ are in cm
+    DetectorConstruction(G4double cellSizeX = 4.0, G4double cellSizeY = 4.0, G4double cellSizeZ = 10.0);
     ~DetectorConstruction() override = default;
 
   public:
@@ -77,12 +78,15 @@ class DetectorConstruction : public G4VUserDetectorConstruction
     // data members
     //
     static G4ThreadLocal G4GlobalMagFieldMessenger*  fMagFieldMessenger;
-                                      // magnetic field messenger
 
-    G4VPhysicalVolume* fAbsorberPV = nullptr; // the absorber physical volume
-    G4VPhysicalVolume* fGapPV = nullptr;      // the gap physical volume
+    G4VPhysicalVolume* fAbsorberPV = nullptr;
+    G4VPhysicalVolume* fGapPV = nullptr;
 
-    G4bool fCheckOverlaps = true; // option to activate checking of volumes overlaps
+    G4bool fCheckOverlaps = true;
+
+    G4double fCellSizeX; // cm
+    G4double fCellSizeY; // cm
+    G4double fCellSizeZ; // cm
 };
 
 // inline functions
