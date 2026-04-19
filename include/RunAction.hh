@@ -59,11 +59,14 @@ namespace B4
 class RunAction : public G4UserRunAction
 {
   public:
-    RunAction();
+    RunAction(const G4String& outputFile = "photon_showers.root");
     ~RunAction() override = default;
 
     void BeginOfRunAction(const G4Run*) override;
     void   EndOfRunAction(const G4Run*) override;
+
+  private:
+    G4String fOutputFile;
 };
 
 }

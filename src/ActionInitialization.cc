@@ -41,15 +41,15 @@ namespace B4a
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-ActionInitialization::ActionInitialization(DetectorConstruction* detConstruction)
- : fDetConstruction(detConstruction)
+ActionInitialization::ActionInitialization(DetectorConstruction* detConstruction, const G4String& outputFile)
+ : fDetConstruction(detConstruction), fOutputFile(outputFile)
 {}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 void ActionInitialization::BuildForMaster() const
 {
-  SetUserAction(new RunAction);
+  SetUserAction(new RunAction(fOutputFile));
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -57,7 +57,7 @@ void ActionInitialization::BuildForMaster() const
 void ActionInitialization::Build() const
 {
   SetUserAction(new PrimaryGeneratorAction);
-  SetUserAction(new RunAction);
+  SetUserAction(new RunAction(fOutputFile));
   auto eventAction = new EventAction;
   SetUserAction(eventAction);
   SetUserAction(new SteppingAction(fDetConstruction,eventAction));
