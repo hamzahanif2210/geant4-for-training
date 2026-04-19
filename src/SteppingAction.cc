@@ -54,9 +54,6 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
 {
 // Collect energy and track length step by step
 
-  // get volume of the current step
-  auto volume = step->GetPreStepPoint()->GetTouchableHandle()->GetVolume();
-
   // energy deposit
   auto edep = step->GetTotalEnergyDeposit();
 
@@ -66,11 +63,9 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
   auto z = step->GetPostStepPoint()->GetPosition().z();
   auto timeNs = step->GetPreStepPoint()->GetGlobalTime() / ns;
 
-  auto touchable = step->GetPreStepPoint()->GetTouchableHandle();
-  auto copyNumber = touchable->GetCopyNumber();
-
-  int nCellsXY = fDetConstruction->GetNCellsXY();
-  int layerIndex = copyNumber / (nCellsXY * nCellsXY);
+  G4double cellSizeZ_mm  = fDetConstruction->GetCellSizeZ() * 10.0; // cm → mm
+  G4double calorHalfZ_mm = fDetConstruction->GetNCellsZ() * cellSizeZ_mm / 2.0;
+  int layerIndex = (int)((z + calorHalfZ_mm) / cellSizeZ_mm);
 
 
   // get event number
