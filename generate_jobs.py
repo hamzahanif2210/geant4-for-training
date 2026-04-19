@@ -2,15 +2,20 @@
 """
 Generate SLURM bash scripts for Geant4 calorimeter simulation jobs.
 
-Cell-size families and energies follow the paper dataset:
+Default dataset:
   - 5 cell configurations: 1x1x5, 2x2x4, 3x3x8, 4x4x10, 5x5x15 cm^3
   - 11 photon energies: 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 GeV
-  - ~9091 events per job -> ~100k events per cell configuration
+
+This version interprets the event count as TOTAL events across ALL
+cell configurations and energies combined.
+
+Leftover events are distributed randomly across jobs so that the final
+dataset size is exact.
 """
 
 import argparse
 import os
-import math
+import random
 
 # Default dataset parameters from the paper
 CELL_CONFIGS = [
@@ -23,13 +28,21 @@ CELL_CONFIGS = [
 
 ENERGIES_GEV = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 
-EVENTS_PER_CONFIG = 100_000
+TOTAL_EVENTS = 100_000
+
+
+def fmt_value(v):
+    """Format numbers cleanly for filenames/tags."""
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v)
 
 
 def make_macro(energy_gev, n_events, n_threads, macro_path):
     lines = [
         f"/run/numberOfThreads {n_threads}",
         "/run/initialize",
+        "/gun/particle gamma",
         f"/gun/energy {energy_gev} GeV",
         f"/run/beamOn {n_events}",
     ]
@@ -41,7 +54,7 @@ def make_slurm_script(
     cx, cy, cz, energy_gev, n_events, macro_path, output_file,
     exe_path, job_dir, n_threads, time_limit, mem_gb, account, partition
 ):
-    tag = f"cx{cx}_cy{cy}_cz{cz}_E{energy_gev}GeV"
+    tag = f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_E{fmt_value(energy_gev)}GeV"
     script_path = os.path.join(job_dir, f"job_{tag}.sh")
     log_path = os.path.join(job_dir, f"log_{tag}.txt")
 
@@ -61,7 +74,7 @@ def make_slurm_script(
     script += f"""
 set -e
 echo "Starting job: {tag}"
-echo "Cell size: {cx} x {cy} x {cz} cm^3,  Energy: {energy_gev} GeV,  Events: {n_events}"
+echo "Cell size: {cx} x {cy} x {cz} cm^3, Energy: {energy_gev} GeV, Events: {n_events}"
 date
 
 {exe_path} \\
@@ -96,8 +109,8 @@ def main():
         help="Directory to write generated job scripts and macros (default: jobs/)"
     )
     parser.add_argument(
-        "--events-per-config", type=int, default=EVENTS_PER_CONFIG,
-        help=f"Total events per cell configuration (default: {EVENTS_PER_CONFIG})"
+        "--total-events", type=int, default=TOTAL_EVENTS,
+        help=f"Total events across ALL configs and energies (default: {TOTAL_EVENTS})"
     )
     parser.add_argument(
         "--threads", type=int, default=8,
@@ -113,7 +126,7 @@ def main():
     )
     parser.add_argument(
         "--account", default="",
-        help="SLURM account (e.g. ctb-stelzer)"
+        help="SLURM account (e.g. def-mdanning)"
     )
     parser.add_argument(
         "--partition", default="",
@@ -129,6 +142,10 @@ def main():
         default=ENERGIES_GEV,
         help="Photon energies in GeV (default: 1 10 20 30 40 50 60 70 80 90 100)"
     )
+    parser.add_argument(
+        "--seed", type=int, default=42,
+        help="Random seed for distributing leftover events reproducibly (default: 42)"
+    )
     args = parser.parse_args()
 
     # Parse cell configs
@@ -138,12 +155,14 @@ def main():
             parts = spec.split(",")
             if len(parts) != 3:
                 parser.error(f"Cell config must be CX,CY,CZ — got: {spec!r}")
-            cell_configs.append(tuple(float(p) for p in parts))
+            try:
+                cell_configs.append(tuple(float(p) for p in parts))
+            except ValueError:
+                parser.error(f"Invalid numeric cell config: {spec!r}")
     else:
         cell_configs = CELL_CONFIGS
 
     energies = args.energies
-    events_per_energy = math.ceil(args.events_per_config / len(energies))
 
     os.makedirs(args.job_dir, exist_ok=True)
     os.makedirs(args.output_dir, exist_ok=True)
@@ -151,25 +170,42 @@ def main():
     macro_dir = os.path.join(args.job_dir, "macros")
     os.makedirs(macro_dir, exist_ok=True)
 
-    all_scripts = []
-
+    # Build full job list
+    jobs = []
     for cx, cy, cz in cell_configs:
         for energy in energies:
-            tag = f"cx{cx}_cy{cy}_cz{cz}_E{energy}GeV"
+            jobs.append((cx, cy, cz, energy))
 
-            # Format sizes: strip trailing .0 for clean filenames
-            def fmt(v):
-                return str(int(v)) if v == int(v) else str(v)
+    # Randomly distribute leftover events for exact total
+    rng = random.Random(args.seed)
+    rng.shuffle(jobs)
 
+    total_jobs = len(jobs)
+    base_events = args.total_events // total_jobs
+    leftover = args.total_events % total_jobs
+
+    job_event_counts = {
+        job: base_events + (1 if i < leftover else 0)
+        for i, job in enumerate(jobs)
+    }
+
+    all_scripts = []
+
+    # Generate scripts/macros in sorted order for cleaner output naming
+    for cx, cy, cz in cell_configs:
+        for energy in energies:
+            n_events = job_event_counts[(cx, cy, cz, energy)]
+
+            tag = f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_E{fmt_value(energy)}GeV"
             macro_path = os.path.join(macro_dir, f"run_{tag}.mac")
             output_file = os.path.join(
                 args.output_dir,
-                f"photons_{fmt(cx)}x{fmt(cy)}x{fmt(cz)}cm_{fmt(energy)}GeV.root"
+                f"photons_{fmt_value(cx)}x{fmt_value(cy)}x{fmt_value(cz)}cm_{fmt_value(energy)}GeV.root"
             )
 
             make_macro(
                 energy_gev=energy,
-                n_events=events_per_energy,
+                n_events=n_events,
                 n_threads=args.threads,
                 macro_path=macro_path,
             )
@@ -177,7 +213,7 @@ def main():
             script_path = make_slurm_script(
                 cx=cx, cy=cy, cz=cz,
                 energy_gev=energy,
-                n_events=events_per_energy,
+                n_events=n_events,
                 macro_path=macro_path,
                 output_file=output_file,
                 exe_path=args.exe,
@@ -200,15 +236,18 @@ def main():
             f.write(f"sbatch {s}\n")
     os.chmod(submit_script, 0o755)
 
+    # Summary
     print(f"Generated {len(all_scripts)} job scripts in: {args.job_dir}/")
-    print(f"  Macros:   {macro_dir}/")
-    print(f"  Outputs:  {args.output_dir}/")
-    print(f"  Submit all with:  bash {submit_script}")
-    print(f"\nJob breakdown:")
-    print(f"  Cell configs : {len(cell_configs)}")
-    print(f"  Energies     : {len(energies)}")
-    print(f"  Events/job   : {events_per_energy}")
-    print(f"  Events/config: ~{events_per_energy * len(energies)}")
+    print(f"  Macros:      {macro_dir}/")
+    print(f"  Outputs:     {args.output_dir}/")
+    print(f"  Submit all:  bash {submit_script}")
+    print("\nJob breakdown:")
+    print(f"  Cell configs   : {len(cell_configs)}")
+    print(f"  Energies       : {len(energies)}")
+    print(f"  Total jobs     : {total_jobs}")
+    print(f"  Base events/job: {base_events}")
+    print(f"  Leftover jobs  : {leftover}")
+    print(f"  Total events   : {sum(job_event_counts.values())}")
 
 
 if __name__ == "__main__":
