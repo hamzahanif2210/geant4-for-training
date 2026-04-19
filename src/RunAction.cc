@@ -71,8 +71,7 @@ RunAction::RunAction(const G4String& outputFile, const G4String& materialType)
   analysisManager->CreateNtupleDColumn("z");           // 4
   analysisManager->CreateNtupleDColumn("dE");          // 5
   analysisManager->CreateNtupleDColumn("t_ns");        // 6
-  analysisManager->CreateNtupleIColumn("layerIndex");  // 7
-  analysisManager->CreateNtupleSColumn("material");    // 8
+  analysisManager->CreateNtupleSColumn("material");    // 7
   analysisManager->FinishNtuple();
 }
 
