@@ -70,6 +70,11 @@ class DetectorConstruction : public G4VUserDetectorConstruction
     const G4VPhysicalVolume* GetAbsorberPV() const;
     const G4VPhysicalVolume* GetGapPV() const;
     const G4String& GetMaterialType() const { return fMaterialType; }
+    G4double GetCellSizeX() const { return fCellSizeX; } // cm
+    G4double GetCellSizeY() const { return fCellSizeY; } // cm
+    G4double GetCellSizeZ() const { return fCellSizeZ; } // cm
+    G4int GetNCellsXY() const { return fNCellsXY; }
+    G4int GetNCellsZ()  const { return fNCellsZ; }
 
   private:
     // methods
@@ -90,6 +95,8 @@ class DetectorConstruction : public G4VUserDetectorConstruction
     G4double fCellSizeY; // cm
     G4double fCellSizeZ; // cm
     G4String fMaterialType; // "PbF2" or "PbWO4"
+    G4int fNCellsXY = 5;
+    G4int fNCellsZ  = 5;
 };
 
 // inline functions
