@@ -48,9 +48,15 @@ namespace {
            << G4endl;
     G4cerr << "            [-cx cellSizeX_cm] [-cy cellSizeY_cm] [-cz cellSizeZ_cm]"
            << G4endl;
+    G4cerr << "            [-mat materialType] [-emin minEnergyGeV] [-emax maxEnergyGeV]"
+           << G4endl;
     G4cerr << "            [-o outputFile] [-vDefault]"
            << G4endl;
     G4cerr << "   Cell sizes are in cm. Default: 4 4 10 (= 4x4x10 cm^3 per cell)"
+           << G4endl;
+    G4cerr << "   Material: PbF2 (default) or PbWO4"
+           << G4endl;
+    G4cerr << "   Energy range in GeV. Default: emin=1 emax=5 (uniform random per event)"
            << G4endl;
     G4cerr << "   -t option is available only for multi-threaded mode."
            << G4endl;
@@ -69,18 +75,24 @@ int main(int argc,char** argv)
   G4double cellSizeX = 4.0;  // cm
   G4double cellSizeY = 4.0;  // cm
   G4double cellSizeZ = 10.0; // cm
-  G4String outputFile = "photon_showers.root";
+  G4String materialType = "PbF2";
+  G4double energyMin = 1.0;  // GeV
+  G4double energyMax = 5.0;  // GeV
+  G4String outputFile = "";
 #ifdef G4MULTITHREADED
   G4int nThreads = 0;
 #endif
   for ( G4int i=1; i<argc; i=i+2 ) {
-    if      ( G4String(argv[i]) == "-m"  ) macro = argv[i+1];
-    else if ( G4String(argv[i]) == "-s"  ) seed = std::stoi(argv[i+1]);
-    else if ( G4String(argv[i]) == "-u"  ) session = argv[i+1];
-    else if ( G4String(argv[i]) == "-cx" ) cellSizeX = std::stod(argv[i+1]);
-    else if ( G4String(argv[i]) == "-cy" ) cellSizeY = std::stod(argv[i+1]);
-    else if ( G4String(argv[i]) == "-cz" ) cellSizeZ = std::stod(argv[i+1]);
-    else if ( G4String(argv[i]) == "-o"  ) outputFile = argv[i+1];
+    if      ( G4String(argv[i]) == "-m"   ) macro = argv[i+1];
+    else if ( G4String(argv[i]) == "-s"   ) seed = std::stoi(argv[i+1]);
+    else if ( G4String(argv[i]) == "-u"   ) session = argv[i+1];
+    else if ( G4String(argv[i]) == "-cx"  ) cellSizeX = std::stod(argv[i+1]);
+    else if ( G4String(argv[i]) == "-cy"  ) cellSizeY = std::stod(argv[i+1]);
+    else if ( G4String(argv[i]) == "-cz"  ) cellSizeZ = std::stod(argv[i+1]);
+    else if ( G4String(argv[i]) == "-mat" ) materialType = argv[i+1];
+    else if ( G4String(argv[i]) == "-emin") energyMin = std::stod(argv[i+1]);
+    else if ( G4String(argv[i]) == "-emax") energyMax = std::stod(argv[i+1]);
+    else if ( G4String(argv[i]) == "-o"   ) outputFile = argv[i+1];
 #ifdef G4MULTITHREADED
     else if ( G4String(argv[i]) == "-t"  ) {
       nThreads = G4UIcommand::ConvertToInt(argv[i+1]);
@@ -96,8 +108,20 @@ int main(int argc,char** argv)
     }
   }
 
+  // Auto-build output filename if not explicitly provided
+  if ( outputFile.empty() ) {
+    auto fmtNum = [](G4double v) -> G4String {
+      G4int iv = (G4int)v;
+      return (G4double)iv == v ? std::to_string(iv) : std::to_string(v);
+    };
+    outputFile = "photons_" + fmtNum(cellSizeX) + "x" + fmtNum(cellSizeY)
+               + "x" + fmtNum(cellSizeZ) + "cm_"
+               + fmtNum(energyMin) + "to" + fmtNum(energyMax) + "GeV_"
+               + materialType + ".root";
+  }
+
   // Random seed
-  CLHEP::HepRandom::setTheSeed(seed); 
+  CLHEP::HepRandom::setTheSeed(seed);
   G4Random::setTheSeed(seed);
 
   // Detect interactive mode (if no macro provided) and define UI session
@@ -130,13 +154,13 @@ int main(int argc,char** argv)
 
   // Set mandatory initialization classes
   //
-  auto detConstruction = new B4::DetectorConstruction(cellSizeX, cellSizeY, cellSizeZ);
+  auto detConstruction = new B4::DetectorConstruction(cellSizeX, cellSizeY, cellSizeZ, materialType);
   runManager->SetUserInitialization(detConstruction);
 
   auto physicsList = new FTFP_BERT;
   runManager->SetUserInitialization(physicsList);
 
-  auto actionInitialization = new B4a::ActionInitialization(detConstruction, outputFile);
+  auto actionInitialization = new B4a::ActionInitialization(detConstruction, outputFile, energyMin, energyMax);
   runManager->SetUserInitialization(actionInitialization);
 
   // Initialize visualization

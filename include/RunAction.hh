@@ -59,7 +59,8 @@ namespace B4
 class RunAction : public G4UserRunAction
 {
   public:
-    RunAction(const G4String& outputFile = "photon_showers.root");
+    RunAction(const G4String& outputFile = "photon_showers.root",
+              const G4String& materialType = "PbF2");
     ~RunAction() override = default;
 
     void BeginOfRunAction(const G4Run*) override;
@@ -67,6 +68,7 @@ class RunAction : public G4UserRunAction
 
   private:
     G4String fOutputFile;
+    G4String fMaterialType;
 };
 
 }

@@ -10,7 +10,9 @@ python /project/ctb-stelzer/hamza95/photons_gen/generate_jobs.py \
   --time 01:00:00 \
   --mem 4 \
   --account def-mdanning \
-  --threads 1 
+  --material PbF2 \
+  --emin 1 \
+  --emax 5
 '''
 import argparse
 import os
@@ -24,7 +26,8 @@ CELL_CONFIGS = [
     (5, 5, 15),
 ]
 
-ENERGIES_GEV = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+DEFAULT_EMIN = 1.0   # GeV
+DEFAULT_EMAX = 5.0   # GeV
 TOTAL_EVENTS = 100_000
 
 
@@ -34,12 +37,11 @@ def fmt_value(v):
     return str(v)
 
 
-def make_macro(energy_gev, n_events, n_threads, macro_path):
+def make_macro(n_events, n_threads, macro_path):
     lines = [
         f"/run/numberOfThreads {n_threads}",
         "/run/initialize",
         "/gun/particle gamma",
-        f"/gun/energy {energy_gev} GeV",
         f"/run/beamOn {n_events}",
     ]
     with open(macro_path, "w") as f:
@@ -47,10 +49,10 @@ def make_macro(energy_gev, n_events, n_threads, macro_path):
 
 
 def make_slurm_script(
-    cx, cy, cz, energy_gev, n_events, macro_path, output_file,
+    cx, cy, cz, material, emin, emax, n_events, macro_path, output_file,
     exe_path, sbatch_dir, log_dir, n_threads, time_limit, mem_gb, account, partition
 ):
-    tag = f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_E{fmt_value(energy_gev)}GeV"
+    tag = f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_{material}_E{fmt_value(emin)}to{fmt_value(emax)}GeV"
     script_path = os.path.join(sbatch_dir, f"job_{tag}.sh")
     log_path = os.path.join(log_dir, f"log_{tag}.txt")
 
@@ -70,12 +72,14 @@ def make_slurm_script(
     script += f"""
 set -e
 echo "Starting job: {tag}"
-echo "Cell size: {cx} x {cy} x {cz} cm^3, Energy: {energy_gev} GeV, Events: {n_events}"
+echo "Cell size: {cx} x {cy} x {cz} cm^3, Material: {material}, Energy: {emin}-{emax} GeV, Events: {n_events}"
 date
 
 {exe_path} \\
     -m {macro_path} \\
     -cx {cx} -cy {cy} -cz {cz} \\
+    -mat {material} \\
+    -emin {emin} -emax {emax} \\
     -o {output_file} \\
     -t {n_threads}
 
@@ -101,13 +105,21 @@ def main():
     parser.add_argument("--mem", type=int, default=8)
     parser.add_argument("--account", default="")
     parser.add_argument("--partition", default="")
+    parser.add_argument("--material", default="PbF2",
+                        choices=["PbF2", "PbWO4"],
+                        help="Detector material (default: PbF2)")
+    parser.add_argument("--emin", type=float, default=DEFAULT_EMIN,
+                        metavar="E_GEV",
+                        help="Minimum incident energy in GeV (default: 1)")
+    parser.add_argument("--emax", type=float, default=DEFAULT_EMAX,
+                        metavar="E_GEV",
+                        help="Maximum incident energy in GeV (default: 5)")
     parser.add_argument("--cell-configs", nargs="+", metavar="CX,CY,CZ")
-    parser.add_argument(
-        "--energies", nargs="+", type=float, metavar="E_GEV",
-        default=ENERGIES_GEV
-    )
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
+
+    if args.emin >= args.emax:
+        parser.error(f"--emin ({args.emin}) must be less than --emax ({args.emax})")
 
     if args.cell_configs:
         cell_configs = []
@@ -122,8 +134,6 @@ def main():
     else:
         cell_configs = CELL_CONFIGS
 
-    energies = args.energies
-
     os.makedirs(args.job_dir, exist_ok=True)
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -135,10 +145,7 @@ def main():
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(macro_dir, exist_ok=True)
 
-    jobs = []
-    for cx, cy, cz in cell_configs:
-        for energy in energies:
-            jobs.append((cx, cy, cz, energy))
+    jobs = list(cell_configs)
 
     rng = random.Random(args.seed)
     rng.shuffle(jobs)
@@ -155,39 +162,40 @@ def main():
     all_scripts = []
 
     for cx, cy, cz in cell_configs:
-        for energy in energies:
-            n_events = job_event_counts[(cx, cy, cz, energy)]
+        n_events = job_event_counts[(cx, cy, cz)]
 
-            tag = f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_E{fmt_value(energy)}GeV"
-            macro_path = os.path.join(macro_dir, f"run_{tag}.mac")
-            output_file = os.path.join(
-                args.output_dir,
-                f"photons_{fmt_value(cx)}x{fmt_value(cy)}x{fmt_value(cz)}cm_{fmt_value(energy)}GeV.root"
-            )
+        tag = f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_{args.material}_E{fmt_value(args.emin)}to{fmt_value(args.emax)}GeV"
+        macro_path = os.path.join(macro_dir, f"run_{tag}.mac")
+        output_file = os.path.join(
+            args.output_dir,
+            f"photons_{fmt_value(cx)}x{fmt_value(cy)}x{fmt_value(cz)}cm_"
+            f"{fmt_value(args.emin)}to{fmt_value(args.emax)}GeV_{args.material}.root"
+        )
 
-            make_macro(
-                energy_gev=energy,
-                n_events=n_events,
-                n_threads=args.threads,
-                macro_path=macro_path,
-            )
+        make_macro(
+            n_events=n_events,
+            n_threads=args.threads,
+            macro_path=macro_path,
+        )
 
-            script_path = make_slurm_script(
-                cx=cx, cy=cy, cz=cz,
-                energy_gev=energy,
-                n_events=n_events,
-                macro_path=macro_path,
-                output_file=output_file,
-                exe_path=args.exe,
-                sbatch_dir=sbatch_dir,
-                log_dir=log_dir,
-                n_threads=args.threads,
-                time_limit=args.time,
-                mem_gb=args.mem,
-                account=args.account,
-                partition=args.partition,
-            )
-            all_scripts.append(script_path)
+        script_path = make_slurm_script(
+            cx=cx, cy=cy, cz=cz,
+            material=args.material,
+            emin=args.emin,
+            emax=args.emax,
+            n_events=n_events,
+            macro_path=macro_path,
+            output_file=output_file,
+            exe_path=args.exe,
+            sbatch_dir=sbatch_dir,
+            log_dir=log_dir,
+            n_threads=args.threads,
+            time_limit=args.time,
+            mem_gb=args.mem,
+            account=args.account,
+            partition=args.partition,
+        )
+        all_scripts.append(script_path)
 
     submit_script = os.path.join(args.job_dir, "submit_all.sh")
     with open(submit_script, "w") as f:
@@ -199,6 +207,8 @@ def main():
     os.chmod(submit_script, 0o755)
 
     print(f"Generated {len(all_scripts)} job scripts")
+    print(f"  Material:     {args.material}")
+    print(f"  Energy range: {args.emin} - {args.emax} GeV (uniform random per event)")
     print(f"  Sbatch files: {sbatch_dir}/")
     print(f"  Logs:         {log_dir}/")
     print(f"  Macros:       {macro_dir}/")

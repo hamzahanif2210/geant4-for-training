@@ -40,8 +40,8 @@ namespace B4
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-RunAction::RunAction(const G4String& outputFile)
-  : fOutputFile(outputFile)
+RunAction::RunAction(const G4String& outputFile, const G4String& materialType)
+  : fOutputFile(outputFile), fMaterialType(materialType)
 {
   // set printing event number per each event
   G4RunManager::GetRunManager()->SetPrintProgress(1);
@@ -63,15 +63,16 @@ RunAction::RunAction(const G4String& outputFile)
 
   // Creating ntuple
   //
-  analysisManager->CreateNtuple("photon_sim", "photons in leadfluoride block");
-  analysisManager->CreateNtupleIColumn("EventID");
-  analysisManager->CreateNtupleDColumn("primaryE");
-  analysisManager->CreateNtupleDColumn("x");
-  analysisManager->CreateNtupleDColumn("y");
-  analysisManager->CreateNtupleDColumn("z");
-  analysisManager->CreateNtupleDColumn("dE");
-  analysisManager->CreateNtupleDColumn("t_ns");
-  analysisManager->CreateNtupleIColumn("layerIndex");   // new
+  analysisManager->CreateNtuple("photon_sim", "photons in crystal calorimeter");
+  analysisManager->CreateNtupleIColumn("EventID");     // 0
+  analysisManager->CreateNtupleDColumn("primaryE");    // 1
+  analysisManager->CreateNtupleDColumn("x");           // 2
+  analysisManager->CreateNtupleDColumn("y");           // 3
+  analysisManager->CreateNtupleDColumn("z");           // 4
+  analysisManager->CreateNtupleDColumn("dE");          // 5
+  analysisManager->CreateNtupleDColumn("t_ns");        // 6
+  analysisManager->CreateNtupleIColumn("layerIndex");  // 7
+  analysisManager->CreateNtupleSColumn("material");    // 8
   analysisManager->FinishNtuple();
 }
 

@@ -41,23 +41,27 @@ namespace B4a
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-ActionInitialization::ActionInitialization(DetectorConstruction* detConstruction, const G4String& outputFile)
- : fDetConstruction(detConstruction), fOutputFile(outputFile)
+ActionInitialization::ActionInitialization(DetectorConstruction* detConstruction,
+                                           const G4String& outputFile,
+                                           G4double energyMin,
+                                           G4double energyMax)
+ : fDetConstruction(detConstruction), fOutputFile(outputFile),
+   fEnergyMin(energyMin), fEnergyMax(energyMax)
 {}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 void ActionInitialization::BuildForMaster() const
 {
-  SetUserAction(new RunAction(fOutputFile));
+  SetUserAction(new RunAction(fOutputFile, fDetConstruction->GetMaterialType()));
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 void ActionInitialization::Build() const
 {
-  SetUserAction(new PrimaryGeneratorAction);
-  SetUserAction(new RunAction(fOutputFile));
+  SetUserAction(new PrimaryGeneratorAction(fEnergyMin, fEnergyMax));
+  SetUserAction(new RunAction(fOutputFile, fDetConstruction->GetMaterialType()));
   auto eventAction = new EventAction;
   SetUserAction(eventAction);
   SetUserAction(new SteppingAction(fDetConstruction,eventAction));

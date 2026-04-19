@@ -56,8 +56,9 @@ namespace B4
 class DetectorConstruction : public G4VUserDetectorConstruction
 {
   public:
-    // cellSizeX, cellSizeY, cellSizeZ are in cm
-    DetectorConstruction(G4double cellSizeX = 4.0, G4double cellSizeY = 4.0, G4double cellSizeZ = 10.0);
+    // cellSizeX, cellSizeY, cellSizeZ are in cm; materialType is "PbF2" or "PbWO4"
+    DetectorConstruction(G4double cellSizeX = 4.0, G4double cellSizeY = 4.0, G4double cellSizeZ = 10.0,
+                         const G4String& materialType = "PbF2");
     ~DetectorConstruction() override = default;
 
   public:
@@ -68,6 +69,7 @@ class DetectorConstruction : public G4VUserDetectorConstruction
     //
     const G4VPhysicalVolume* GetAbsorberPV() const;
     const G4VPhysicalVolume* GetGapPV() const;
+    const G4String& GetMaterialType() const { return fMaterialType; }
 
   private:
     // methods
@@ -87,6 +89,7 @@ class DetectorConstruction : public G4VUserDetectorConstruction
     G4double fCellSizeX; // cm
     G4double fCellSizeY; // cm
     G4double fCellSizeZ; // cm
+    G4String fMaterialType; // "PbF2" or "PbWO4"
 };
 
 // inline functions

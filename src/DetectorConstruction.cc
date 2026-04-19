@@ -60,8 +60,9 @@ G4GlobalMagFieldMessenger* DetectorConstruction::fMagFieldMessenger = nullptr;
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-DetectorConstruction::DetectorConstruction(G4double cellSizeX, G4double cellSizeY, G4double cellSizeZ)
-  : fCellSizeX(cellSizeX), fCellSizeY(cellSizeY), fCellSizeZ(cellSizeZ)
+DetectorConstruction::DetectorConstruction(G4double cellSizeX, G4double cellSizeY, G4double cellSizeZ,
+                                           const G4String& materialType)
+  : fCellSizeX(cellSizeX), fCellSizeY(cellSizeY), fCellSizeZ(cellSizeZ), fMaterialType(materialType)
 {}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -119,7 +120,8 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
 
   // Get materials
   auto defaultMaterial = G4Material::GetMaterial("Galactic");
-  auto detectorMaterial = G4Material::GetMaterial("LeadFluoride");
+  G4String g4MatName = (fMaterialType == "PbWO4") ? "G4_PbWO4" : "LeadFluoride";
+  auto detectorMaterial = G4Material::GetMaterial(g4MatName);
 
   if ( ! defaultMaterial || ! detectorMaterial ) {
     G4ExceptionDescription msg;

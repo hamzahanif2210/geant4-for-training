@@ -37,34 +37,21 @@
 #include "G4ParticleDefinition.hh"
 #include "G4SystemOfUnits.hh"
 #include "Randomize.hh"
-#include <vector>
-#include <random>
 
 namespace B4
 {
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-PrimaryGeneratorAction::PrimaryGeneratorAction()
+PrimaryGeneratorAction::PrimaryGeneratorAction(G4double energyMin, G4double energyMax)
+  : fEnergyMin(energyMin), fEnergyMax(energyMax)
 {
   G4int nofParticles = 1;
   fParticleGun = new G4ParticleGun(nofParticles);
 
-  // default particle kinematic
   auto particleDefinition = G4ParticleTable::GetParticleTable()->FindParticle("gamma");
   fParticleGun->SetParticleDefinition(particleDefinition);
   fParticleGun->SetParticleMomentumDirection(G4ThreeVector(0., 0., 1.));
-
-  // Set energy from fixed discrete values {1, 10, 50, 100, 200 GeV}
-  // std::vector<G4double> energies = {1.*GeV, 10.*GeV, 20.*GeV, 30.*GeV, 40.*GeV, 50.*GeV, 60.*GeV, 70.*GeV, 80.*GeV, 90.*GeV, 100.*GeV};
-  // std::random_device rd;  
-  // std::mt19937 gen(rd()); // Mersenne Twister RNG seeded by rd()
-  // std::uniform_int_distribution<size_t> dist(0, energies.size() - 1);
-  // auto particleEnergy = energies[dist(gen)];
-  // fParticleGun->SetParticleEnergy(particleEnergy);
-  // fParticleGun->SetParticleEnergy(1000.*MeV); // 1000 MeV = 1 GeV
-  fParticleGun->SetParticleEnergy(15 * GeV);
-
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -100,6 +87,10 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent)
     G4Exception("PrimaryGeneratorAction::GeneratePrimaries()",
                 "MyCode0002", JustWarning, msg);
   }
+
+  // Sample a uniform random energy in [fEnergyMin, fEnergyMax] for this event
+  G4double energy = (fEnergyMin + (fEnergyMax - fEnergyMin) * G4UniformRand()) * GeV;
+  fParticleGun->SetParticleEnergy(energy);
 
   // Set gun position
   fParticleGun->SetParticlePosition(G4ThreeVector(0., 0., -(worldZHalfLength + 0.*mm)));
