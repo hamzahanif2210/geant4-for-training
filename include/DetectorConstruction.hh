@@ -69,6 +69,7 @@ class DetectorConstruction : public G4VUserDetectorConstruction
     //
     const G4VPhysicalVolume* GetAbsorberPV() const;
     const G4VPhysicalVolume* GetGapPV() const;
+    const G4String& GetMaterialType() const { return fMaterialType; }
 
   private:
     // methods

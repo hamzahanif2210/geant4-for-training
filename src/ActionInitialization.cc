@@ -53,7 +53,7 @@ ActionInitialization::ActionInitialization(DetectorConstruction* detConstruction
 
 void ActionInitialization::BuildForMaster() const
 {
-  SetUserAction(new RunAction(fOutputFile));
+  SetUserAction(new RunAction(fOutputFile, fDetConstruction->GetMaterialType()));
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -61,7 +61,7 @@ void ActionInitialization::BuildForMaster() const
 void ActionInitialization::Build() const
 {
   SetUserAction(new PrimaryGeneratorAction(fEnergyMin, fEnergyMax));
-  SetUserAction(new RunAction(fOutputFile));
+  SetUserAction(new RunAction(fOutputFile, fDetConstruction->GetMaterialType()));
   auto eventAction = new EventAction;
   SetUserAction(eventAction);
   SetUserAction(new SteppingAction(fDetConstruction,eventAction));

@@ -91,6 +91,7 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
   analysisManager->FillNtupleDColumn(5, edep);
   analysisManager->FillNtupleDColumn(6, timeNs);
   analysisManager->FillNtupleIColumn(7, layerIndex);
+  analysisManager->FillNtupleSColumn(8, std::string(fDetConstruction->GetMaterialType()));
   analysisManager->AddNtupleRow();
 
 }
