@@ -57,10 +57,10 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
   // energy deposit
   auto edep = step->GetTotalEnergyDeposit();
 
-  // Step coordinates
-  auto x = step->GetPostStepPoint()->GetPosition().x();
-  auto y = step->GetPostStepPoint()->GetPosition().y();
-  auto z = step->GetPostStepPoint()->GetPosition().z();
+  // Step coordinates — pre-step point used so dE is attributed to the layer where the step began
+  auto x = step->GetPreStepPoint()->GetPosition().x();
+  auto y = step->GetPreStepPoint()->GetPosition().y();
+  auto z = step->GetPreStepPoint()->GetPosition().z();
   auto timeNs = step->GetPreStepPoint()->GetGlobalTime() / ns;
 
   G4double cellSizeZ_mm  = fDetConstruction->GetCellSizeZ() * 10.0; // cm → mm
