@@ -41,8 +41,12 @@ namespace B4a
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-ActionInitialization::ActionInitialization(DetectorConstruction* detConstruction, const G4String& outputFile)
- : fDetConstruction(detConstruction), fOutputFile(outputFile)
+ActionInitialization::ActionInitialization(DetectorConstruction* detConstruction,
+                                           const G4String& outputFile,
+                                           G4double energyMin,
+                                           G4double energyMax)
+ : fDetConstruction(detConstruction), fOutputFile(outputFile),
+   fEnergyMin(energyMin), fEnergyMax(energyMax)
 {}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -56,7 +60,7 @@ void ActionInitialization::BuildForMaster() const
 
 void ActionInitialization::Build() const
 {
-  SetUserAction(new PrimaryGeneratorAction);
+  SetUserAction(new PrimaryGeneratorAction(fEnergyMin, fEnergyMax));
   SetUserAction(new RunAction(fOutputFile));
   auto eventAction = new EventAction;
   SetUserAction(eventAction);

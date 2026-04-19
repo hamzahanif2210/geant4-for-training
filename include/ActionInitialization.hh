@@ -47,7 +47,10 @@ namespace B4a
 class ActionInitialization : public G4VUserActionInitialization
 {
   public:
-    ActionInitialization(B4::DetectorConstruction*, const G4String& outputFile = "photon_showers.root");
+    ActionInitialization(B4::DetectorConstruction*,
+                         const G4String& outputFile = "photon_showers.root",
+                         G4double energyMin = 1.0,
+                         G4double energyMax = 5.0);
     ~ActionInitialization() override = default;
 
     void BuildForMaster() const override;
@@ -56,6 +59,8 @@ class ActionInitialization : public G4VUserActionInitialization
   private:
     B4::DetectorConstruction* fDetConstruction = nullptr;
     G4String fOutputFile;
+    G4double fEnergyMin; // GeV
+    G4double fEnergyMax; // GeV
 };
 
 }

@@ -49,16 +49,18 @@ namespace B4
 class PrimaryGeneratorAction : public G4VUserPrimaryGeneratorAction
 {
 public:
-  PrimaryGeneratorAction();
+  // energyMin and energyMax are in GeV; a uniform random energy is sampled per event
+  PrimaryGeneratorAction(G4double energyMin = 1.0, G4double energyMax = 5.0);
   ~PrimaryGeneratorAction() override;
 
   void GeneratePrimaries(G4Event* event) override;
 
-  // set methods
   void SetRandomFlag(G4bool value);
 
 private:
-  G4ParticleGun* fParticleGun = nullptr; // G4 particle gun
+  G4ParticleGun* fParticleGun = nullptr;
+  G4double fEnergyMin; // GeV
+  G4double fEnergyMax; // GeV
 };
 
 }
