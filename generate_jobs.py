@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 
-'''
+"""
+Example:
 python /project/ctb-stelzer/hamza95/photons_gen/generate_jobs.py \
   --exe /project/ctb-stelzer/hamza95/photons_gen/build/exampleB4a \
-  --output-dir /project/ctb-stelzer/hamza95/photo_gen_files \
-  --job-dir /project/ctb-stelzer/hamza95/photo_jobs_sbatch_files \
-  --total-events 100000 \
+  --output-dir /project/ctb-stelzer/hamza95/photo_gen_files_PbWO4 \
+  --job-dir /project/ctb-stelzer/hamza95/photo_jobs_sbatch_files_PbWO4 \
+  --total-events 150000 \
   --threads 1 \
   --time 01:00:00 \
   --mem 4 \
   --account def-mdanning \
-  --material PbF2 \
+  --material PbWO4 \
   --emin 1 \
-  --emax 5
-'''
+  --emax 100 \
+  --estep 5
+"""
+
 import argparse
+import math
 import os
 import random
 
@@ -28,13 +32,28 @@ CELL_CONFIGS = [
 
 DEFAULT_EMIN = 1.0   # GeV
 DEFAULT_EMAX = 5.0   # GeV
+DEFAULT_ESTEP = 5.0  # GeV
 TOTAL_EVENTS = 100_000
 
 
 def fmt_value(v):
-    if isinstance(v, float) and v.is_integer():
-        return str(int(v))
+    if isinstance(v, float):
+        if v.is_integer():
+            return str(int(v))
+        return f"{v:g}"
     return str(v)
+
+
+def build_energy_bins(emin, emax, estep):
+    bins = []
+    e = emin
+
+    while e < emax:
+        e_high = min(e + estep, emax)
+        bins.append((e, e_high))
+        e = e_high
+
+    return bins
 
 
 def make_macro(n_events, n_threads, macro_path):
@@ -52,7 +71,10 @@ def make_slurm_script(
     cx, cy, cz, material, emin, emax, n_events, macro_path, output_file,
     exe_path, sbatch_dir, log_dir, n_threads, time_limit, mem_gb, account, partition
 ):
-    tag = f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_{material}_E{fmt_value(emin)}to{fmt_value(emax)}GeV"
+    tag = (
+        f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_"
+        f"{material}_E{fmt_value(emin)}to{fmt_value(emax)}GeV"
+    )
     script_path = os.path.join(sbatch_dir, f"job_{tag}.sh")
     log_path = os.path.join(log_dir, f"log_{tag}.txt")
 
@@ -88,6 +110,7 @@ date
 """
     with open(script_path, "w") as f:
         f.write(script)
+
     os.chmod(script_path, 0o755)
     return script_path
 
@@ -105,21 +128,42 @@ def main():
     parser.add_argument("--mem", type=int, default=8)
     parser.add_argument("--account", default="")
     parser.add_argument("--partition", default="")
-    parser.add_argument("--material", default="PbF2",
-                        choices=["PbF2", "PbWO4"],
-                        help="Detector material (default: PbF2)")
-    parser.add_argument("--emin", type=float, default=DEFAULT_EMIN,
-                        metavar="E_GEV",
-                        help="Minimum incident energy in GeV (default: 1)")
-    parser.add_argument("--emax", type=float, default=DEFAULT_EMAX,
-                        metavar="E_GEV",
-                        help="Maximum incident energy in GeV (default: 5)")
+    parser.add_argument(
+        "--material",
+        default="PbF2",
+        choices=["PbF2", "PbWO4"],
+        help="Detector material (default: PbF2)"
+    )
+    parser.add_argument(
+        "--emin",
+        type=float,
+        default=DEFAULT_EMIN,
+        metavar="E_GEV",
+        help="Minimum incident energy in GeV (default: 1)"
+    )
+    parser.add_argument(
+        "--emax",
+        type=float,
+        default=DEFAULT_EMAX,
+        metavar="E_GEV",
+        help="Maximum incident energy in GeV (default: 5)"
+    )
+    parser.add_argument(
+        "--estep",
+        type=float,
+        default=DEFAULT_ESTEP,
+        metavar="E_GEV",
+        help="Energy step size in GeV for splitting jobs (default: 5)"
+    )
     parser.add_argument("--cell-configs", nargs="+", metavar="CX,CY,CZ")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
     if args.emin >= args.emax:
         parser.error(f"--emin ({args.emin}) must be less than --emax ({args.emax})")
+
+    if args.estep <= 0:
+        parser.error(f"--estep ({args.estep}) must be > 0")
 
     if args.cell_configs:
         cell_configs = []
@@ -145,7 +189,13 @@ def main():
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(macro_dir, exist_ok=True)
 
-    jobs = list(cell_configs)
+    energy_bins = build_energy_bins(args.emin, args.emax, args.estep)
+
+    jobs = [
+        (cx, cy, cz, e_low, e_high)
+        for (cx, cy, cz) in cell_configs
+        for (e_low, e_high) in energy_bins
+    ]
 
     rng = random.Random(args.seed)
     rng.shuffle(jobs)
@@ -161,15 +211,19 @@ def main():
 
     all_scripts = []
 
-    for cx, cy, cz in cell_configs:
-        n_events = job_event_counts[(cx, cy, cz)]
+    for cx, cy, cz, emin, emax in jobs:
+        n_events = job_event_counts[(cx, cy, cz, emin, emax)]
 
-        tag = f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_{args.material}_E{fmt_value(args.emin)}to{fmt_value(args.emax)}GeV"
+        tag = (
+            f"cx{fmt_value(cx)}_cy{fmt_value(cy)}_cz{fmt_value(cz)}_"
+            f"{args.material}_E{fmt_value(emin)}to{fmt_value(emax)}GeV"
+        )
+
         macro_path = os.path.join(macro_dir, f"run_{tag}.mac")
         output_file = os.path.join(
             args.output_dir,
             f"photons_{fmt_value(cx)}x{fmt_value(cy)}x{fmt_value(cz)}cm_"
-            f"{fmt_value(args.emin)}to{fmt_value(args.emax)}GeV_{args.material}.root"
+            f"{fmt_value(emin)}to{fmt_value(emax)}GeV_{args.material}.root"
         )
 
         make_macro(
@@ -179,10 +233,12 @@ def main():
         )
 
         script_path = make_slurm_script(
-            cx=cx, cy=cy, cz=cz,
+            cx=cx,
+            cy=cy,
+            cz=cz,
             material=args.material,
-            emin=args.emin,
-            emax=args.emax,
+            emin=emin,
+            emax=emax,
             n_events=n_events,
             macro_path=macro_path,
             output_file=output_file,
@@ -207,13 +263,22 @@ def main():
     os.chmod(submit_script, 0o755)
 
     print(f"Generated {len(all_scripts)} job scripts")
-    print(f"  Material:     {args.material}")
-    print(f"  Energy range: {args.emin} - {args.emax} GeV (uniform random per event)")
-    print(f"  Sbatch files: {sbatch_dir}/")
-    print(f"  Logs:         {log_dir}/")
-    print(f"  Macros:       {macro_dir}/")
-    print(f"  Outputs:      {args.output_dir}/")
-    print(f"  Submit all:   bash {submit_script}")
+    print(f"  Material:        {args.material}")
+    print(f"  Energy range:    {args.emin} - {args.emax} GeV")
+    print(f"  Energy step:     {args.estep} GeV")
+    print(f"  Energy bins:     {len(energy_bins)}")
+    print(f"  Cell configs:    {len(cell_configs)}")
+    print(f"  Total jobs:      {len(all_scripts)}")
+    print(f"  Events total:    {args.total_events}")
+    print(f"  Sbatch files:    {sbatch_dir}/")
+    print(f"  Logs:            {log_dir}/")
+    print(f"  Macros:          {macro_dir}/")
+    print(f"  Outputs:         {args.output_dir}/")
+    print(f"  Submit all:      bash {submit_script}")
+
+    print("\nEnergy bins:")
+    for e_low, e_high in energy_bins:
+        print(f"  {fmt_value(e_low)} -> {fmt_value(e_high)} GeV")
 
 
 if __name__ == "__main__":
