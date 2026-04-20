@@ -63,10 +63,6 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
   auto z = step->GetPostStepPoint()->GetPosition().z();
   auto timeNs = step->GetPreStepPoint()->GetGlobalTime() / ns;
 
-  G4double cellSizeZ_mm  = fDetConstruction->GetCellSizeZ() * 10.0; // cm → mm
-  G4double calorHalfZ_mm = fDetConstruction->GetNCellsZ() * cellSizeZ_mm / 2.0;
-  int layerIndex = (int)((z + calorHalfZ_mm) / cellSizeZ_mm);
-
 
   // get event number
   auto eventID = G4RunManager::GetRunManager()->GetCurrentEvent()->GetEventID();
@@ -85,8 +81,7 @@ void SteppingAction::UserSteppingAction(const G4Step* step)
   analysisManager->FillNtupleDColumn(4, z);
   analysisManager->FillNtupleDColumn(5, edep);
   analysisManager->FillNtupleDColumn(6, timeNs);
-  analysisManager->FillNtupleIColumn(7, layerIndex);
-  analysisManager->FillNtupleSColumn(8, std::string(fDetConstruction->GetMaterialType()));
+  analysisManager->FillNtupleSColumn(7, std::string(fDetConstruction->GetMaterialType()));
   analysisManager->AddNtupleRow();
 
 }
