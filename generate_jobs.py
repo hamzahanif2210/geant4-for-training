@@ -232,7 +232,7 @@ def main():
         macro_path = os.path.join(macro_dir, f"run_{tag}.mac")
         output_file = os.path.join(
             args.output_dir,
-            f"photons_{fmt_value(cxy)}x{fmt_value(cxy)}x{fmt_value(cz)}cm_"
+            f"photons_{fmt_value(cxy * 10)}x{fmt_value(cxy * 10)}x{fmt_value(cz * 10)}mm_"
             f"{fmt_value(emin)}to{fmt_value(emax)}GeV_{args.material}.root"
         )
 

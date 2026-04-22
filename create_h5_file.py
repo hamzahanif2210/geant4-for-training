@@ -7,19 +7,22 @@ Convert photon-shower ROOT files into per-event HDF5 using per-plane
 clustering with variable-length (vlen) storage per event.
 
 For each event:
-  1. Bin z into planes of thickness `dz`         → plane_idx = floor(z/dz)
+  1. Bin z into planes of thickness `dz`         → plane_idx = floor((z + z_half)/dz)
+     z_half = N_CELLS_Z * cz_mm / 2 (parsed from filename) so plane_idx=0 is the
+     front face of the detector (z = -z_half in Geant4 world coordinates).
   2. Within each plane, bin (x, y) into (dx, dx) cells; sum energy per cell
   3. If more than `nmax` cells, keep the top-`nmax` by energy; drop the rest
   4. Sort kept cells by plane_idx  (shallow → deep)
   5. Store flat in a vlen float32 dataset; no padding
 
 Per-cell features (4 columns, flattened per event):
-    x_center    (cm)
-    y_center    (cm)
-    plane_idx   (integer, stored as float32 for uniform dtype)
+    x_center    (mm)   — Geant4 internal unit, same as dx
+    y_center    (mm)   — Geant4 internal unit, same as dx
+    plane_idx   (integer >= 0, stored as float32 for uniform dtype)
     energy_sum
 
-Physical z is reconstructable as (plane_idx + 0.5) * dz.
+Physical z (mm) is reconstructable as (plane_idx + 0.5) * dz - z_half,
+where dz and z_half (both in mm) are stored as HDF5 attributes.
 
 Usage
 -----
@@ -58,11 +61,12 @@ import uproot
 # Defaults
 # =============================================================================
 
-DEFAULT_DX   = 10.0    # cm  (also used for dy)
-DEFAULT_DZ   = 20.0    # cm
+DEFAULT_DX   = 10.0    # mm  (also used for dy)
+DEFAULT_DZ   = 20.0    # mm
 DEFAULT_NMAX = 4096
 
-N_FEAT = 4             # (x, y, plane_idx, energy)
+N_FEAT    = 4          # (x, y, plane_idx, energy)
+N_CELLS_Z = 5          # nCellsZ hardcoded in DetectorConstruction.cc
 
 
 # =============================================================================
@@ -70,31 +74,44 @@ N_FEAT = 4             # (x, y, plane_idx, energy)
 # =============================================================================
 
 FILENAME_RE = re.compile(
-    r"photons_(\d+)x(\d+)x(\d+)cm_.*?_(PbWO4|PbF2)\.root$"
+    r"photons_(\d+)x(\d+)x(\d+)mm_.*?_(PbWO4|PbF2)\.root$"
 )
 
 
-def parse_filename_material(filepath):
+def _parse_filename(filepath):
+    """Return (cz_mm, material) from filename. cz_mm is the cell Z size in mm."""
     name = os.path.basename(filepath)
     match = FILENAME_RE.match(name)
     if not match:
-        raise ValueError(f"Bad filename (material not parseable): {name}")
-    return match.group(4)
+        raise ValueError(f"Bad filename: {name}")
+    return float(match.group(3)), match.group(4)
+
+
+def parse_filename_material(filepath):
+    _, material = _parse_filename(filepath)
+    return material
 
 
 # =============================================================================
 # Per-plane clustering
 # =============================================================================
 
-def cluster_event_per_plane(x, y, z, e, dx, dz):
+def cluster_event_per_plane(x, y, z, e, dx, dz, z_offset=0.0):
     """
     Bin z into planes of thickness dz, cluster (x, y) with cell size (dx, dx)
     within each plane independently.
 
+    z_offset should be calorSizeZ/2 in mm (= N_CELLS_Z * cz_mm / 2) so that
+    plane_idx=0 corresponds to the front face of the detector.
+    Physical z (mm) is reconstructable as: z_center = (plane_idx + 0.5)*dz - z_offset
+
+    All spatial units (x, y, z, dx, dz, z_offset) are in mm — Geant4 stores
+    coordinates in its internal unit system which is mm.
+
     Returns (n_cells, 4) float32:
-        col 0: x_center (cm)
-        col 1: y_center (cm)
-        col 2: plane_idx (integer, stored as float32)
+        col 0: x_center (mm)
+        col 1: y_center (mm)
+        col 2: plane_idx (integer >= 0, stored as float32)
         col 3: energy_sum
 
     Cells are NOT sorted or truncated here — caller handles that.
@@ -104,7 +121,7 @@ def cluster_event_per_plane(x, y, z, e, dx, dz):
     if len(e) == 0:
         return np.zeros((0, N_FEAT), dtype=np.float32)
 
-    plane_idx = np.floor(z / dz).astype(np.int32)
+    plane_idx = np.floor((z + z_offset) / dz).astype(np.int32)
 
     out_chunks = []
     # Iterate over each occupied plane separately — hits in different planes
@@ -201,14 +218,15 @@ def _flush_events(datasets, buffers, total):
 # Per-ROOT processing
 # =============================================================================
 
-def _write_attrs(f, dx, dz, nmax, max_planes):
+def _write_attrs(f, dx, dz, nmax, max_planes, z_half):
     """Write self-describing attributes on an h5 file."""
     f.attrs["dx"]              = float(dx)
     f.attrs["dy"]              = float(dx)
     f.attrs["dz"]              = float(dz)
     f.attrs["nmax"]            = int(nmax)
     f.attrs["n_planes_max"]    = int(max_planes)
-    f.attrs["feature_columns"] = "x,y,plane_idx,energy"
+    f.attrs["z_half"]          = float(z_half)
+    f.attrs["feature_columns"] = "x_mm,y_mm,plane_idx,energy"
 
 
 # =============================================================================
@@ -277,7 +295,10 @@ def process_root(input_root, output_h5, dx, dz, nmax,
     protected by fcntl.flock so parallel Slurm tasks can share the same file.
     """
 
-    material = parse_filename_material(input_root)
+    cz_mm, material = _parse_filename(input_root)
+    # z_half = calorSizeZ/2 in mm. Shifts the signed Geant4 z (also in mm) so
+    # plane_idx=0 corresponds to the detector front face.
+    z_half = N_CELLS_Z * cz_mm / 2.0   # mm
 
     out_dir = os.path.dirname(os.path.abspath(output_h5))
     if out_dir:
@@ -301,7 +322,7 @@ def process_root(input_root, output_h5, dx, dz, nmax,
             f.create_dataset("primaryE", (0,), maxshape=(None,), dtype=np.float32, chunks=(4096,))
             f.create_dataset("material", (0,), maxshape=(None,), dtype=str_dt, chunks=(4096,))
             f.create_dataset("shape", data=np.array([0, 0, N_FEAT], dtype=np.int64))
-            _write_attrs(f, dx, dz, nmax, max_planes=0)
+            _write_attrs(f, dx, dz, nmax, max_planes=0, z_half=z_half)
         print(f"[DONE] 0 events → {output_h5}")
 
         _append_summary_line(summary_file,
@@ -380,7 +401,7 @@ def process_root(input_root, output_h5, dx, dz, nmax,
             b_show, b_nc, b_eid, b_E0, b_mat = [], [], [], [], []
 
             for s, t in zip(local_splits[:-1], local_splits[1:]):
-                cl = cluster_event_per_plane(x[s:t], y[s:t], z[s:t], dE[s:t], dx, dz)
+                cl = cluster_event_per_plane(x[s:t], y[s:t], z[s:t], dE[s:t], dx, dz, z_offset=z_half)
                 n_raw  = cl.shape[0]
                 e_raw  = float(cl[:, 3].sum()) if n_raw > 0 else 0.0
 
@@ -421,7 +442,7 @@ def process_root(input_root, output_h5, dx, dz, nmax,
             )
 
         f.create_dataset("shape", data=np.array([total, max_cells, N_FEAT], dtype=np.int64))
-        _write_attrs(f, dx, dz, nmax, max_planes)
+        _write_attrs(f, dx, dz, nmax, max_planes, z_half)
 
     retention_pct = (100.0 * energy_kept_total / energy_raw_total
                      if energy_raw_total > 0 else 0.0)
@@ -467,22 +488,25 @@ def combine_h5(files, output, chunk_size=5000):
     N          = 0
     max_cells  = 0
     max_planes = 0
-    nmax = dx = dz = None
+    nmax = dx = dz = z_half = None
 
     for fpath in files:
         with h5py.File(fpath, "r") as fin:
-            file_nmax = int(fin.attrs.get("nmax", -1))
-            file_dx   = float(fin.attrs.get("dx", -1))
-            file_dz   = float(fin.attrs.get("dz", -1))
+            file_nmax   = int(fin.attrs.get("nmax", -1))
+            file_dx     = float(fin.attrs.get("dx", -1))
+            file_dz     = float(fin.attrs.get("dz", -1))
+            file_z_half = float(fin.attrs.get("z_half", -1))
 
             if nmax is None:
-                nmax, dx, dz = file_nmax, file_dx, file_dz
+                nmax, dx, dz, z_half = file_nmax, file_dx, file_dz, file_z_half
             elif (file_nmax, file_dx, file_dz) != (nmax, dx, dz):
                 raise RuntimeError(
                     f"Inconsistent clustering params across files. "
                     f"First file had (dx={dx}, dz={dz}, nmax={nmax}); "
                     f"{fpath} has (dx={file_dx}, dz={file_dz}, nmax={file_nmax})."
                 )
+            if file_z_half != z_half:
+                z_half = -1.0  # mixed detector configs; z_half not uniform
 
             nc_ds = fin["n_cells"]
             n = nc_ds.shape[0]
@@ -557,7 +581,7 @@ def combine_h5(files, output, chunk_size=5000):
                 offset += n
 
         f.create_dataset("shape", data=np.array([offset, max_cells, N_FEAT], dtype=np.int64))
-        _write_attrs(f, dx, dz, nmax, max_planes)
+        _write_attrs(f, dx, dz, nmax, max_planes, z_half)
 
     print(f"[COMBINED] {offset} events → {output}")
 
@@ -673,9 +697,9 @@ def main():
 
     # Clustering parameters.
     p.add_argument("--dx",   type=float, default=DEFAULT_DX,
-                   help=f"Transverse cell size in cm, also used for dy (default: {DEFAULT_DX})")
+                   help=f"Transverse cell size in mm, also used for dy (default: {DEFAULT_DX})")
     p.add_argument("--dz",   type=float, default=DEFAULT_DZ,
-                   help=f"Plane (z) slab thickness in cm (default: {DEFAULT_DZ})")
+                   help=f"Plane (z) slab thickness in mm (default: {DEFAULT_DZ})")
     p.add_argument("--nmax", type=int, default=DEFAULT_NMAX,
                    help=f"Max cells per event (top-N by energy, default: {DEFAULT_NMAX})")
 
