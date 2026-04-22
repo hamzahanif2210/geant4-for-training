@@ -38,6 +38,8 @@
 namespace B4
 {
 
+G4String RunAction::fgOutputFileName = "photon_showers.root";
+
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
 RunAction::RunAction()
@@ -84,9 +86,7 @@ void RunAction::BeginOfRunAction(const G4Run* /*run*/)
 
   // Open an output file
   //
-  G4String filePath = "/project/ctb-stelzer/hamza95/photons_gen/build";
-  G4String fileName = filePath+"photon_showers.root";
-  analysisManager->OpenFile(fileName);
+  analysisManager->OpenFile(fgOutputFileName);
   G4cout << "Using " << analysisManager->GetType() << G4endl;
 }
 

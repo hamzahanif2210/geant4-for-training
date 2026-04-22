@@ -33,6 +33,7 @@
 #include "EventAction.hh"
 #include "SteppingAction.hh"
 #include "DetectorConstruction.hh"
+#include "G4SystemOfUnits.hh"
 
 using namespace B4;
 
@@ -43,7 +44,38 @@ namespace B4a
 
 ActionInitialization::ActionInitialization(DetectorConstruction* detConstruction)
  : fDetConstruction(detConstruction)
-{}
+{
+  fGunMessenger = new G4GenericMessenger(this, "/B4/gun/", "Incident particle commands");
+  fGunMessenger->DeclareMethodWithUnit("emin", "GeV",
+    &ActionInitialization::CmdSetEmin, "Set minimum incident energy");
+  fGunMessenger->DeclareMethodWithUnit("emax", "GeV",
+    &ActionInitialization::CmdSetEmax, "Set maximum incident energy");
+
+  fRunMessenger = new G4GenericMessenger(this, "/B4/run/", "Run control commands");
+  fRunMessenger->DeclareMethod("outputFile",
+    &ActionInitialization::CmdSetOutputFile, "Set output ROOT file name");
+}
+
+ActionInitialization::~ActionInitialization()
+{
+  delete fGunMessenger;
+  delete fRunMessenger;
+}
+
+void ActionInitialization::CmdSetEmin(G4double e)
+{
+  PrimaryGeneratorAction::SetEmin(e);
+}
+
+void ActionInitialization::CmdSetEmax(G4double e)
+{
+  PrimaryGeneratorAction::SetEmax(e);
+}
+
+void ActionInitialization::CmdSetOutputFile(G4String name)
+{
+  RunAction::SetOutputFileName(name);
+}
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 

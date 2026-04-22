@@ -1,14 +1,21 @@
 # Macro file for example B4
-# 
+#
 # Can be run in batch, without graphic
 # or interactively: Idle> /control/execute run1.mac
 #
-# Change the default number of workers (in multi-threading mode) 
-/run/numberOfThreads 16 
+# Change the default number of workers (in multi-threading mode)
+/run/numberOfThreads 16
 #
-# Initialize kernel 
-/run/initialize 
+# Initialize kernel
+/run/initialize
 #
-# /tracking/verbose 0 
-/run/beamOn 100 
+# Incident energy range (uniform continuous sampling between emin and emax)
+/B4/gun/emin 1 GeV
+/B4/gun/emax 100 GeV
+#
+# Output ROOT file
+/B4/run/outputFile photon_showers.root
+#
+# /tracking/verbose 0
+/run/beamOn 100
 

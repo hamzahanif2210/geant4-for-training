@@ -31,6 +31,8 @@
 #define B4aActionInitialization_h 1
 
 #include "G4VUserActionInitialization.hh"
+#include "G4GenericMessenger.hh"
+#include "globals.hh"
 
 
 namespace B4
@@ -47,13 +49,19 @@ class ActionInitialization : public G4VUserActionInitialization
 {
   public:
     ActionInitialization(B4::DetectorConstruction*);
-    ~ActionInitialization() override = default;
+    ~ActionInitialization() override;
 
     void BuildForMaster() const override;
     void Build() const override;
 
   private:
+    void CmdSetEmin(G4double e);
+    void CmdSetEmax(G4double e);
+    void CmdSetOutputFile(G4String name);
+
     B4::DetectorConstruction* fDetConstruction = nullptr;
+    G4GenericMessenger* fGunMessenger = nullptr;
+    G4GenericMessenger* fRunMessenger = nullptr;
 };
 
 }
