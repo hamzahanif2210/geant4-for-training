@@ -1,19 +1,28 @@
 # Macro file for example B4
-# 
+#
 # To be run preferably in batch, without graphics:
 # % exampleB4[a,b,c,d] run2.mac
 #
 #/run/numberOfThreads 4
 #/control/cout/ignoreThreadsExcept 0
 #
+# Detector geometry (values in mm, unit is always mm)
+/B4/det/cellSizeXY 40
+/B4/det/cellSizeZ 100
+#
+# Detector material: PbF2 or PbWO4
+/B4/det/material PbF2
+#
 /run/initialize
 #
-# Default kinemtics: 
-# electron 50 MeV in direction (0.,0.,1.)
-# 1000 events
+# Incident energy range (uniform continuous sampling between emin and emax)
+/B4/gun/emin 1 GeV
+/B4/gun/emax 100 GeV
+#
+# Output ROOT file
+/B4/run/outputFile photon_showers.root
 #
 /run/printProgress 100
-/gun/energy 1 GeV
 /gun/particle gamma
 /run/beamOn 5000
 

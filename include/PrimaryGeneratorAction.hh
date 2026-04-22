@@ -57,8 +57,13 @@ public:
   // set methods
   void SetRandomFlag(G4bool value);
 
+  static void SetEmin(G4double e) { fgEmin = e; }
+  static void SetEmax(G4double e) { fgEmax = e; }
+
 private:
-  G4ParticleGun* fParticleGun = nullptr; // G4 particle gun
+  G4ParticleGun* fParticleGun = nullptr;
+  static G4double fgEmin;
+  static G4double fgEmax;
 };
 
 }

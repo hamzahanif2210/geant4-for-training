@@ -64,6 +64,11 @@ class RunAction : public G4UserRunAction
 
     void BeginOfRunAction(const G4Run*) override;
     void   EndOfRunAction(const G4Run*) override;
+
+    static void SetOutputFileName(G4String name) { fgOutputFileName = name; }
+
+  private:
+    static G4String fgOutputFileName;
 };
 
 }
