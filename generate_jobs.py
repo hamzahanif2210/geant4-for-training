@@ -45,11 +45,11 @@ import random
 
 # (cellXY_cm, cellZ_cm) — cells are square in XY
 CELL_CONFIGS = [
-    (1,  5),
-    (2,  4),
-    (3,  8),
-    (4,  10),
-    (5,  15),
+    (10,  50),
+    (20,  40),
+    (30,  80),
+    (40,  100),
+    (50,  150),
 ]
 
 DEFAULT_EMIN  = 1.0   # GeV
