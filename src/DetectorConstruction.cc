@@ -60,6 +60,31 @@ G4GlobalMagFieldMessenger* DetectorConstruction::fMagFieldMessenger = nullptr;
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
+DetectorConstruction::DetectorConstruction()
+{
+  fMessenger = new G4GenericMessenger(this, "/B4/det/", "Detector geometry commands");
+  fMessenger->DeclareProperty("cellSizeXY", fCellSizeXY,
+    "Cell transverse size in mm (number only, unit is always mm)");
+  fMessenger->DeclareProperty("cellSizeZ", fCellSizeZ,
+    "Cell longitudinal size in mm (number only, unit is always mm)");
+  fMessenger->DeclareMethod("material", &DetectorConstruction::SetMaterial,
+    "Set detector material: PbF2 or PbWO4");
+}
+
+DetectorConstruction::~DetectorConstruction()
+{
+  delete fMessenger;
+}
+
+void DetectorConstruction::SetMaterial(G4String name)
+{
+  if      (name == "PbF2")  fMaterialName = "LeadFluoride";
+  else if (name == "PbWO4") fMaterialName = "G4_PbWO4";
+  else                      fMaterialName = name;
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
 G4VPhysicalVolume* DetectorConstruction::Construct()
 {
   // Define materials
@@ -101,9 +126,9 @@ void DetectorConstruction::DefineMaterials()
 
 G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
 {
-  // Geometry parameters
-  G4double cellSizeXY = 40*mm; //25*mm -> 26*mm & 24*mm;   4cm -> 20 cm
-  G4double cellSizeZ  = 100*mm; //60.*mm -> 61*mm & 59*mm;   10cm -> 50 cm 
+  // Geometry parameters (fCellSizeXY/Z are raw mm values set via macro)
+  G4double cellSizeXY = fCellSizeXY * mm;
+  G4double cellSizeZ  = fCellSizeZ  * mm;
   G4double nCellsXY = 5;
   G4double nCellsZ  = 5;
   G4double calorSizeXY = nCellsXY * cellSizeXY;
@@ -113,7 +138,7 @@ G4VPhysicalVolume* DetectorConstruction::DefineVolumes()
 
   // Get materials
   auto defaultMaterial = G4Material::GetMaterial("Galactic");
-  auto detectorMaterial = G4Material::GetMaterial("LeadFluoride");
+  auto detectorMaterial = G4Material::GetMaterial(fMaterialName);
 
   if ( ! defaultMaterial || ! detectorMaterial ) {
     G4ExceptionDescription msg;

@@ -6,6 +6,13 @@
 # Change the default number of workers (in multi-threading mode)
 /run/numberOfThreads 16
 #
+# Detector geometry (values in mm, unit is always mm)
+/B4/det/cellSizeXY 40
+/B4/det/cellSizeZ 100
+#
+# Detector material: PbF2 or PbWO4
+/B4/det/material PbF2
+#
 # Initialize kernel
 /run/initialize
 #

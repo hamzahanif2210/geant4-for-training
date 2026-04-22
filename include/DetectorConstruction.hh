@@ -31,6 +31,7 @@
 #define B4DetectorConstruction_h 1
 
 #include "G4VUserDetectorConstruction.hh"
+#include "G4GenericMessenger.hh"
 #include "globals.hh"
 
 class G4VPhysicalVolume;
@@ -56,8 +57,8 @@ namespace B4
 class DetectorConstruction : public G4VUserDetectorConstruction
 {
   public:
-    DetectorConstruction() = default;
-    ~DetectorConstruction() override = default;
+    DetectorConstruction();
+    ~DetectorConstruction() override;
 
   public:
     G4VPhysicalVolume* Construct() override;
@@ -73,16 +74,21 @@ class DetectorConstruction : public G4VUserDetectorConstruction
     //
     void DefineMaterials();
     G4VPhysicalVolume* DefineVolumes();
+    void SetMaterial(G4String name);
 
     // data members
     //
     static G4ThreadLocal G4GlobalMagFieldMessenger*  fMagFieldMessenger;
-                                      // magnetic field messenger
 
-    G4VPhysicalVolume* fAbsorberPV = nullptr; // the absorber physical volume
-    G4VPhysicalVolume* fGapPV = nullptr;      // the gap physical volume
+    G4VPhysicalVolume* fAbsorberPV = nullptr;
+    G4VPhysicalVolume* fGapPV = nullptr;
 
-    G4bool fCheckOverlaps = true; // option to activate checking of volumes overlaps
+    G4bool fCheckOverlaps = true;
+
+    G4GenericMessenger* fMessenger = nullptr;
+    G4double fCellSizeXY = 40.;         // cell XY size in mm (value only)
+    G4double fCellSizeZ  = 100.;        // cell Z size in mm (value only)
+    G4String fMaterialName = "LeadFluoride";
 };
 
 // inline functions
