@@ -15,7 +15,21 @@ python /project/ctb-stelzer/hamza95/photons_gen/generate_jobs.py \
   --emin 1 \
   --emax 100 \
   --estep 5
-"""
+
+python /project/ctb-stelzer/hamza95/photons_gen/generate_jobs.py \
+  --exe /project/ctb-stelzer/hamza95/photons_gen/build/exampleB4a \
+  --output-dir /project/ctb-stelzer/hamza95/photo_gen_files_PbF2 \
+  --job-dir /project/ctb-stelzer/hamza95/photo_jobs_sbatch_files_PbF2 \
+  --total-events 150000 \
+  --threads 1 \
+  --time 01:00:00 \
+  --mem 4 \
+  --account def-mdanning \
+  --material PbF2 \
+  --emin 1 \
+  --emax 100 \
+  --estep 5
+  """
 
 import argparse
 import math

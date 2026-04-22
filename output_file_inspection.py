@@ -1,10 +1,14 @@
 import uproot
+import pandas as pd
 
-tree = uproot.open("/project/ctb-stelzer/hamza95/photo_gen_files_PbF2/photons_1x1x5cm_1to6GeV_PbF2.root:photon_sim")
+file_path = "/project/ctb-stelzer/hamza95/photo_gen_files_PbWO4/photons_1x1x5cm_1to6GeV_PbWO4.root:photon_sim"
 
-count = 0
+tree = uproot.open(file_path)
 
-for batch in tree.iterate(["EventID"], library="np", step_size=100000):
-    count += (batch["EventID"] == 2).sum()
+# Read selected branches into pandas
+df = tree.arrays(
+    ["EventID", "primaryE", "x", "y", "z", "dE", "t_ns", "material"],
+    library="pd"
+)
 
-print(count)
+print(df.head(10))

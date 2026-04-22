@@ -1,2 +1,4 @@
 build/
 *.root
+logs/
+slurm_h5_work/
