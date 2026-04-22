@@ -6,7 +6,7 @@ Generate SLURM job scripts for Geant4 calorimeter simulations.
 All detector geometry, energy range, and output file are configured through
 Geant4 macro commands (/B4/det/, /B4/gun/, /B4/run/) written per job.
 
-Cell sizes are given in cm; they are converted to mm for the macro.
+Cell sizes are given in mm; they are passed directly to the Geant4 macro.
 Energy values are in GeV.
 
 Example:
@@ -43,13 +43,13 @@ import argparse
 import os
 import random
 
-# (cellXY_cm, cellZ_cm) — cells are square in XY
+# (cellXY_mm, cellZ_mm) — cells are square in XY
 CELL_CONFIGS = [
-    (1,  5),
-    (2,  4),
-    (3,  8),
-    (4,  10),
-    (5,  15),
+    (10,  50),
+    (20,  40),
+    (30,  80),
+    (40,  100),
+    (50,  150),
 ]
 
 DEFAULT_EMIN  = 1.0   # GeV
@@ -122,7 +122,7 @@ def make_slurm_script(
     script += f"""
 set -e
 echo "Starting job: {tag}"
-echo "Cell: {cxy}x{cxy}x{cz} cm^3, Material: {material}, Energy: {emin}-{emax} GeV, Events: {n_events}"
+echo "Cell: {cxy}x{cxy}x{cz} mm^3, Material: {material}, Energy: {emin}-{emax} GeV, Events: {n_events}"
 date
 
 {exe_path} -m {macro_path}
@@ -168,8 +168,8 @@ def main():
                         metavar="E_GEV",
                         help="Energy bin width in GeV (default: %(default)s)")
     parser.add_argument("--cell-configs",  nargs="+", metavar="CXY,CZ",
-                        help="Override cell configs as CXY,CZ pairs in cm "
-                             "(e.g. --cell-configs 4,10 2,5)")
+                        help="Override cell configs as CXY,CZ pairs in mm "
+                             "(e.g. --cell-configs 40,100 20,50)")
     parser.add_argument("--seed",          type=int, default=42,
                         help="RNG seed for job ordering (default: %(default)s)")
     args = parser.parse_args()
@@ -221,8 +221,8 @@ def main():
 
     for cxy, cz, emin, emax in jobs:
         n_events = job_event_counts[(cxy, cz, emin, emax)]
-        cxy_mm   = cxy * 10   # cm → mm
-        cz_mm    = cz  * 10
+        cxy_mm   = cxy   # already mm
+        cz_mm    = cz    # already mm
 
         tag = (
             f"cxy{fmt_value(cxy)}_cz{fmt_value(cz)}_"
@@ -232,7 +232,7 @@ def main():
         macro_path = os.path.join(macro_dir, f"run_{tag}.mac")
         output_file = os.path.join(
             args.output_dir,
-            f"photons_{fmt_value(cxy * 10)}x{fmt_value(cxy * 10)}x{fmt_value(cz * 10)}mm_"
+            f"photons_{fmt_value(cxy)}x{fmt_value(cxy)}x{fmt_value(cz)}mm_"
             f"{fmt_value(emin)}to{fmt_value(emax)}GeV_{args.material}.root"
         )
 
