@@ -16,13 +16,13 @@ For each event:
   5. Store flat in a vlen float32 dataset; no padding
 
 Per-cell features (4 columns, flattened per event):
-    x_center    (cm)
-    y_center    (cm)
+    x_center    (mm)   — Geant4 internal unit, same as dx
+    y_center    (mm)   — Geant4 internal unit, same as dx
     plane_idx   (integer >= 0, stored as float32 for uniform dtype)
     energy_sum
 
-Physical z is reconstructable as (plane_idx + 0.5) * dz - z_half,
-where z_half is stored as the "z_half" attribute in the HDF5 file.
+Physical z (mm) is reconstructable as (plane_idx + 0.5) * dz - z_half,
+where dz and z_half (both in mm) are stored as HDF5 attributes.
 
 Usage
 -----
@@ -61,8 +61,8 @@ import uproot
 # Defaults
 # =============================================================================
 
-DEFAULT_DX   = 10.0    # cm  (also used for dy)
-DEFAULT_DZ   = 20.0    # cm
+DEFAULT_DX   = 10.0    # mm  (also used for dy)
+DEFAULT_DZ   = 20.0    # mm
 DEFAULT_NMAX = 4096
 
 N_FEAT    = 4          # (x, y, plane_idx, energy)
@@ -101,13 +101,16 @@ def cluster_event_per_plane(x, y, z, e, dx, dz, z_offset=0.0):
     Bin z into planes of thickness dz, cluster (x, y) with cell size (dx, dx)
     within each plane independently.
 
-    z_offset should be calorSizeZ/2 = N_CELLS_Z * cz_cm / 2 so that plane_idx=0
-    corresponds to the front face of the detector. Physical z is reconstructable as:
-        z_center = (plane_idx + 0.5) * dz - z_offset
+    z_offset should be calorSizeZ/2 in mm (= N_CELLS_Z * cz_mm / 2) so that
+    plane_idx=0 corresponds to the front face of the detector.
+    Physical z (mm) is reconstructable as: z_center = (plane_idx + 0.5)*dz - z_offset
+
+    All spatial units (x, y, z, dx, dz, z_offset) are in mm — Geant4 stores
+    coordinates in its internal unit system which is mm.
 
     Returns (n_cells, 4) float32:
-        col 0: x_center (cm)
-        col 1: y_center (cm)
+        col 0: x_center (mm)
+        col 1: y_center (mm)
         col 2: plane_idx (integer >= 0, stored as float32)
         col 3: energy_sum
 
@@ -223,7 +226,7 @@ def _write_attrs(f, dx, dz, nmax, max_planes, z_half):
     f.attrs["nmax"]            = int(nmax)
     f.attrs["n_planes_max"]    = int(max_planes)
     f.attrs["z_half"]          = float(z_half)
-    f.attrs["feature_columns"] = "x,y,plane_idx,energy"
+    f.attrs["feature_columns"] = "x_mm,y_mm,plane_idx,energy"
 
 
 # =============================================================================
@@ -293,7 +296,10 @@ def process_root(input_root, output_h5, dx, dz, nmax,
     """
 
     cz_cm, material = _parse_filename(input_root)
-    z_half = N_CELLS_Z * cz_cm / 2.0   # = calorSizeZ/2; shifts Geant4 z so plane_idx starts at 0
+    # Geant4 writes x/y/z in mm (internal unit). The filename encodes cell Z in cm,
+    # so convert to mm. z_half = calorSizeZ/2 mm shifts the signed Geant4 z so
+    # plane_idx=0 corresponds to the detector front face.
+    z_half = N_CELLS_Z * (cz_cm * 10.0) / 2.0   # mm
 
     out_dir = os.path.dirname(os.path.abspath(output_h5))
     if out_dir:
@@ -692,9 +698,9 @@ def main():
 
     # Clustering parameters.
     p.add_argument("--dx",   type=float, default=DEFAULT_DX,
-                   help=f"Transverse cell size in cm, also used for dy (default: {DEFAULT_DX})")
+                   help=f"Transverse cell size in mm, also used for dy (default: {DEFAULT_DX})")
     p.add_argument("--dz",   type=float, default=DEFAULT_DZ,
-                   help=f"Plane (z) slab thickness in cm (default: {DEFAULT_DZ})")
+                   help=f"Plane (z) slab thickness in mm (default: {DEFAULT_DZ})")
     p.add_argument("--nmax", type=int, default=DEFAULT_NMAX,
                    help=f"Max cells per event (top-N by energy, default: {DEFAULT_NMAX})")
 
