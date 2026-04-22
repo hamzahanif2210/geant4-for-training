@@ -8,7 +8,7 @@ clustering with variable-length (vlen) storage per event.
 
 For each event:
   1. Bin z into planes of thickness `dz`         → plane_idx = floor((z + z_half)/dz)
-     z_half = N_CELLS_Z * cz_cm / 2 (parsed from filename) so plane_idx=0 is the
+     z_half = N_CELLS_Z * cz_mm / 2 (parsed from filename) so plane_idx=0 is the
      front face of the detector (z = -z_half in Geant4 world coordinates).
   2. Within each plane, bin (x, y) into (dx, dx) cells; sum energy per cell
   3. If more than `nmax` cells, keep the top-`nmax` by energy; drop the rest
@@ -74,12 +74,12 @@ N_CELLS_Z = 5          # nCellsZ hardcoded in DetectorConstruction.cc
 # =============================================================================
 
 FILENAME_RE = re.compile(
-    r"photons_(\d+)x(\d+)x(\d+)cm_.*?_(PbWO4|PbF2)\.root$"
+    r"photons_(\d+)x(\d+)x(\d+)mm_.*?_(PbWO4|PbF2)\.root$"
 )
 
 
 def _parse_filename(filepath):
-    """Return (cz_cm, material) from filename. cz_cm is the cell Z size in cm."""
+    """Return (cz_mm, material) from filename. cz_mm is the cell Z size in mm."""
     name = os.path.basename(filepath)
     match = FILENAME_RE.match(name)
     if not match:
@@ -295,11 +295,10 @@ def process_root(input_root, output_h5, dx, dz, nmax,
     protected by fcntl.flock so parallel Slurm tasks can share the same file.
     """
 
-    cz_cm, material = _parse_filename(input_root)
-    # Geant4 writes x/y/z in mm (internal unit). The filename encodes cell Z in cm,
-    # so convert to mm. z_half = calorSizeZ/2 mm shifts the signed Geant4 z so
+    cz_mm, material = _parse_filename(input_root)
+    # z_half = calorSizeZ/2 in mm. Shifts the signed Geant4 z (also in mm) so
     # plane_idx=0 corresponds to the detector front face.
-    z_half = N_CELLS_Z * (cz_cm * 10.0) / 2.0   # mm
+    z_half = N_CELLS_Z * cz_mm / 2.0   # mm
 
     out_dir = os.path.dirname(os.path.abspath(output_h5))
     if out_dir:
